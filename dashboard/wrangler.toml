@@ -9,5 +9,4 @@ pages_build_output_dir = "."
 [[d1_databases]]
 binding = "DB"
 database_name = "tv-alert-relay"
-# Ganti dengan Database ID D1 kamu:
-database_id   = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
+database_id   = "29a7a81e-f41b-4d02-86c2-d387774723c9"
