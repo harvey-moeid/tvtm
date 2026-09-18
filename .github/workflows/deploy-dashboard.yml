@@ -20,4 +20,5 @@ jobs:
         with:
           apiToken: ${{ secrets.CF_API_TOKEN }}
           accountId: ${{ secrets.CF_ACCOUNT_ID }}
-          command: pages deploy dashboard --project-name=tvtm --commit-dirty=true
+          workingDirectory: dashboard
+          command: pages deploy . --project-name=tvtm --commit-dirty=true
