@@ -1,0 +1,23 @@
+{
+  "markets": [
+    {
+      "id": "BTCUSDT_FUTURES",
+      "symbol": "BTCUSDT",
+      "market": "futures",
+      "exchange": "binance_futures",
+      "exchange_symbol": "BTCUSDT",
+      "enabled": true,
+      "timeframes": ["5m", "15m"]
+    },
+    {
+      "id": "GOLDUSDT",
+      "symbol": "GOLDUSDT",
+      "market": "provider_defined",
+      "exchange": "binance_spot",
+      "exchange_symbol": "PAXGUSDT",
+      "enabled": true,
+      "timeframes": ["5m", "15m"],
+      "note": "PAXGUSDT (PAX Gold/USDT, Binance spot) dipakai sebagai proxy GOLDUSDT karena melacak harga emas 1:1 per troy ounce. WAJIB divalidasi/diganti sebelum production sesuai AC-14 PRD v4."
+    }
+  ]
+}

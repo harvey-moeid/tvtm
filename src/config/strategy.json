@@ -1,0 +1,21 @@
+{
+  "default": {
+    "swingLookback": 2,
+    "minHistoricalCandles": 200,
+    "zoneTolerancePct": 0.10,
+    "minEngulfingBodyRangeRatio": 0.35,
+    "minPinBarBodyRangeRatio": 0.03,
+    "pinBarWickToBodyRatio": 2.0,
+    "cooldownMinutes": 60,
+    "minStructureConfirmation": 1,
+    "standaloneM15Signals": false
+  },
+  "overrides": {
+    "BTCUSDT": {
+      "zoneTolerancePct": 0.10
+    },
+    "GOLDUSDT": {
+      "zoneTolerancePct": 0.15
+    }
+  }
+}
