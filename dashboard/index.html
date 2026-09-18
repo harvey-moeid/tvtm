@@ -1,0 +1,644 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Signal History — tv-alert-relay</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet" />
+  <style>
+    /* ── token ── */
+    :root {
+      --bg:         #0A0E17;
+      --surf-1:     #111827;
+      --surf-2:     #1A2540;
+      --border:     #1E3055;
+      --border-dim: #162238;
+      --text:       #C9D8F0;
+      --text-muted: #4A6080;
+      --text-dim:   #2E4060;
+      --buy:        #22C55E;
+      --buy-bg:     rgba(34,197,94,.10);
+      --sell:       #EF4444;
+      --sell-bg:    rgba(239,68,68,.10);
+      --accent:     #4F8EF7;
+      --accent-bg:  rgba(79,142,247,.10);
+      --neutral:    #94A3B8;
+    }
+
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    body {
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Space Grotesk', system-ui, sans-serif;
+      font-size: 14px;
+      min-height: 100vh;
+    }
+
+    /* ── layout ── */
+    .shell {
+      max-width: 1300px;
+      margin: 0 auto;
+      padding: 0 24px 48px;
+    }
+
+    /* ── header ── */
+    header {
+      border-bottom: 1px solid var(--border-dim);
+      padding: 20px 0 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: baseline;
+      gap: 10px;
+    }
+
+    .brand-name {
+      font-size: 18px;
+      font-weight: 600;
+      letter-spacing: -.3px;
+      color: var(--text);
+    }
+
+    .brand-sub {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      color: var(--text-muted);
+    }
+
+    .header-right {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+    }
+
+    /* live dot */
+    .live-btn {
+      display: flex;
+      align-items: center;
+      gap: 7px;
+      background: var(--surf-2);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      padding: 6px 12px;
+      cursor: pointer;
+      font-family: inherit;
+      font-size: 13px;
+      font-weight: 500;
+      color: var(--text-muted);
+      transition: color .15s, border-color .15s;
+      user-select: none;
+    }
+
+    .live-btn.active { color: var(--buy); border-color: var(--buy); }
+
+    .live-dot {
+      width: 7px; height: 7px;
+      border-radius: 50%;
+      background: var(--text-dim);
+      flex-shrink: 0;
+    }
+
+    .live-btn.active .live-dot {
+      background: var(--buy);
+      box-shadow: 0 0 0 2px rgba(34,197,94,.25);
+      animation: pulse 1.8s ease-in-out infinite;
+    }
+
+    @keyframes pulse {
+      0%, 100% { box-shadow: 0 0 0 2px rgba(34,197,94,.25); }
+      50%       { box-shadow: 0 0 0 5px rgba(34,197,94,.08); }
+    }
+
+    .total-badge {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+      color: var(--text-muted);
+    }
+
+    /* ── filter bar ── */
+    .filter-bar {
+      display: flex;
+      align-items: center;
+      gap: 10px;
+      padding: 18px 0 16px;
+      flex-wrap: wrap;
+    }
+
+    .filter-label {
+      font-size: 12px;
+      font-weight: 500;
+      color: var(--text-muted);
+      white-space: nowrap;
+    }
+
+    select {
+      background: var(--surf-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text);
+      font-family: 'Space Grotesk', sans-serif;
+      font-size: 13px;
+      padding: 7px 28px 7px 10px;
+      appearance: none;
+      background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='8' fill='none'%3E%3Cpath d='M1 1l5 5 5-5' stroke='%234A6080' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+      background-repeat: no-repeat;
+      background-position: right 10px center;
+      cursor: pointer;
+      min-width: 130px;
+      transition: border-color .15s;
+    }
+
+    select:focus { outline: none; border-color: var(--accent); }
+
+    .clear-btn {
+      background: transparent;
+      border: 1px solid var(--border-dim);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 12px;
+      padding: 7px 12px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+
+    .clear-btn:hover { color: var(--text); border-color: var(--border); }
+
+    .filter-spacer { flex: 1; }
+
+    /* ── table wrapper ── */
+    .table-wrap {
+      border: 1px solid var(--border-dim);
+      border-radius: 10px;
+      overflow: hidden;
+      overflow-x: auto;
+    }
+
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+
+    thead {
+      background: var(--surf-1);
+      border-bottom: 1px solid var(--border-dim);
+    }
+
+    thead th {
+      padding: 11px 14px;
+      text-align: left;
+      font-size: 11px;
+      font-weight: 600;
+      color: var(--text-muted);
+      letter-spacing: .4px;
+      white-space: nowrap;
+    }
+
+    tbody tr {
+      border-bottom: 1px solid var(--border-dim);
+      transition: background .1s;
+    }
+
+    tbody tr:last-child { border-bottom: none; }
+    tbody tr:hover { background: var(--surf-1); }
+
+    tbody td {
+      padding: 11px 14px;
+      white-space: nowrap;
+      color: var(--text);
+    }
+
+    /* mono data cells */
+    .mono {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 12px;
+    }
+
+    .cell-muted {
+      color: var(--text-muted);
+    }
+
+    /* direction badge */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      border-radius: 4px;
+      padding: 3px 9px;
+      font-size: 12px;
+      font-weight: 600;
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .badge-buy  { color: var(--buy);  background: var(--buy-bg); }
+    .badge-sell { color: var(--sell); background: var(--sell-bg); }
+
+    /* bias tag */
+    .bias {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 11px;
+      padding: 2px 7px;
+      border-radius: 3px;
+    }
+
+    .bias-bullish { color: var(--buy);     background: var(--buy-bg);  }
+    .bias-bearish { color: var(--sell);    background: var(--sell-bg); }
+    .bias-neutral { color: var(--neutral); background: rgba(148,163,184,.08); }
+
+    /* notified status */
+    .status {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      font-size: 12px;
+    }
+
+    .status-dot {
+      width: 6px; height: 6px;
+      border-radius: 50%;
+      flex-shrink: 0;
+    }
+
+    .status-ok   .status-dot { background: var(--buy); }
+    .status-pend .status-dot { background: var(--text-muted); }
+    .status-ok   { color: var(--buy);  }
+    .status-pend { color: var(--text-muted); }
+
+    /* pattern chip */
+    .chip {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 10px;
+      background: var(--surf-2);
+      border: 1px solid var(--border-dim);
+      border-radius: 3px;
+      padding: 2px 6px;
+      color: var(--text-muted);
+    }
+
+    /* ── empty / loading / error ── */
+    .state-row td {
+      text-align: center;
+      padding: 60px 24px;
+      color: var(--text-muted);
+    }
+
+    .state-icon {
+      font-size: 28px;
+      display: block;
+      margin-bottom: 10px;
+      opacity: .4;
+    }
+
+    .state-title {
+      font-size: 15px;
+      font-weight: 500;
+      color: var(--text-muted);
+      margin-bottom: 4px;
+    }
+
+    .state-desc {
+      font-size: 12px;
+      color: var(--text-dim);
+    }
+
+    /* skeleton row */
+    .skel td { padding: 12px 14px; }
+
+    .skel-bar {
+      height: 12px;
+      border-radius: 4px;
+      background: linear-gradient(90deg, var(--surf-1) 25%, var(--surf-2) 50%, var(--surf-1) 75%);
+      background-size: 200% 100%;
+      animation: shimmer 1.2s infinite;
+    }
+
+    @keyframes shimmer { 0%{background-position:200% 0} 100%{background-position:-200% 0} }
+
+    /* ── pagination ── */
+    .pag {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: 14px 0 0;
+      gap: 12px;
+      flex-wrap: wrap;
+    }
+
+    .pag-info {
+      font-size: 12px;
+      color: var(--text-muted);
+      font-family: 'JetBrains Mono', monospace;
+    }
+
+    .pag-btns {
+      display: flex;
+      gap: 6px;
+    }
+
+    .pag-btn {
+      background: var(--surf-1);
+      border: 1px solid var(--border);
+      border-radius: 6px;
+      color: var(--text-muted);
+      font-family: inherit;
+      font-size: 13px;
+      padding: 6px 14px;
+      cursor: pointer;
+      transition: color .15s, border-color .15s;
+    }
+
+    .pag-btn:hover:not(:disabled) { color: var(--text); border-color: var(--border); }
+    .pag-btn:disabled { opacity: .3; cursor: default; }
+
+    /* ── responsive ── */
+    @media (max-width: 640px) {
+      header { flex-direction: column; align-items: flex-start; }
+      .brand-name { font-size: 16px; }
+      tbody td, thead th { padding: 9px 10px; }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      .live-dot, .skel-bar { animation: none; }
+    }
+  </style>
+</head>
+<body>
+<div class="shell">
+
+  <!-- header -->
+  <header>
+    <div class="brand">
+      <span class="brand-name">Signal History</span>
+      <span class="brand-sub">tv-alert-relay</span>
+    </div>
+    <div class="header-right">
+      <span class="total-badge" id="totalBadge">— signals</span>
+      <button class="live-btn" id="liveBtn" title="Auto-refresh tiap 30 detik">
+        <span class="live-dot"></span>
+        <span id="liveBtnLabel">Auto-refresh</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- filter bar -->
+  <div class="filter-bar">
+    <span class="filter-label">Filter</span>
+
+    <select id="fSymbol" title="Filter symbol">
+      <option value="">Semua symbol</option>
+    </select>
+
+    <select id="fDirection" title="Filter arah">
+      <option value="">Semua arah</option>
+      <option value="BUY">BUY</option>
+      <option value="SELL">SELL</option>
+    </select>
+
+    <select id="fStatus" title="Filter status">
+      <option value="">Semua status</option>
+      <option value="1">Terkirim</option>
+      <option value="0">Pending</option>
+    </select>
+
+    <select id="fLimit" title="Baris per halaman">
+      <option value="25">25 baris</option>
+      <option value="50" selected>50 baris</option>
+      <option value="100">100 baris</option>
+    </select>
+
+    <button class="clear-btn" id="clearBtn">Hapus filter</button>
+    <div class="filter-spacer"></div>
+  </div>
+
+  <!-- table -->
+  <div class="table-wrap">
+    <table>
+      <thead>
+        <tr>
+          <th>Waktu Candle</th>
+          <th>Symbol</th>
+          <th>Market</th>
+          <th>TF</th>
+          <th>Arah</th>
+          <th>Bias M15</th>
+          <th>Pattern</th>
+          <th>Zone</th>
+          <th>Harga</th>
+          <th>Struktur Event</th>
+          <th>Status</th>
+          <th>Dibuat</th>
+        </tr>
+      </thead>
+      <tbody id="tbody">
+        <!-- rows injected by JS -->
+      </tbody>
+    </table>
+  </div>
+
+  <!-- pagination -->
+  <div class="pag">
+    <span class="pag-info" id="pagInfo">—</span>
+    <div class="pag-btns">
+      <button class="pag-btn" id="prevBtn" disabled>← Prev</button>
+      <button class="pag-btn" id="nextBtn" disabled>Next →</button>
+    </div>
+  </div>
+
+</div>
+
+<script>
+  // ── state ──────────────────────────────────────────────────────────────────
+  let currentOffset = 0;
+  let currentTotal  = 0;
+  let liveInterval  = null;
+  let liveActive    = false;
+
+  const getLimit     = () => parseInt(document.getElementById('fLimit').value, 10);
+  const getSymbol    = () => document.getElementById('fSymbol').value;
+  const getDirection = () => document.getElementById('fDirection').value;
+  const getStatus    = () => document.getElementById('fStatus').value;
+
+  // ── API ────────────────────────────────────────────────────────────────────
+  async function fetchSignals(offset) {
+    const params = new URLSearchParams();
+    if (getSymbol())    params.set('symbol',    getSymbol());
+    if (getDirection()) params.set('direction', getDirection());
+    if (getStatus() !== '') params.set('notified', getStatus());
+    params.set('limit',  getLimit());
+    params.set('offset', offset);
+
+    const res = await fetch('/api/signals?' + params.toString());
+    if (!res.ok) throw new Error(`HTTP ${res.status}`);
+    return res.json();
+  }
+
+  // ── render ─────────────────────────────────────────────────────────────────
+  function renderSkeleton() {
+    const tbody = document.getElementById('tbody');
+    tbody.innerHTML = Array(8).fill('').map(() => `
+      <tr class="skel">
+        ${Array(12).fill('').map((_, i) => `
+          <td><div class="skel-bar" style="width:${[110,70,60,30,50,70,100,80,70,110,60,90][i]}px"></div></td>
+        `).join('')}
+      </tr>
+    `).join('');
+  }
+
+  function fmtTime(iso) {
+    if (!iso) return '—';
+    return iso.replace('T', ' ').replace('Z', '').slice(0, 16);
+  }
+
+  function directionBadge(dir) {
+    const cls = dir === 'BUY' ? 'badge-buy' : 'badge-sell';
+    const dot = dir === 'BUY' ? '▲' : '▼';
+    return `<span class="badge ${cls}">${dot} ${dir}</span>`;
+  }
+
+  function biasBadge(bias) {
+    const map = {
+      BULLISH: 'bias-bullish',
+      BEARISH: 'bias-bearish',
+      NEUTRAL: 'bias-neutral',
+    };
+    return `<span class="bias ${map[bias] || 'bias-neutral'}">${bias}</span>`;
+  }
+
+  function statusBadge(notified) {
+    return notified
+      ? `<span class="status status-ok"><span class="status-dot"></span>Terkirim</span>`
+      : `<span class="status status-pend"><span class="status-dot"></span>Pending</span>`;
+  }
+
+  function renderRows(signals) {
+    const tbody = document.getElementById('tbody');
+    if (!signals.length) {
+      tbody.innerHTML = `
+        <tr class="state-row">
+          <td colspan="12">
+            <span class="state-icon">📭</span>
+            <div class="state-title">Tidak ada sinyal ditemukan</div>
+            <div class="state-desc">Ubah filter atau tunggu engine berikutnya berjalan.</div>
+          </td>
+        </tr>`;
+      return;
+    }
+
+    tbody.innerHTML = signals.map(r => `
+      <tr>
+        <td class="mono cell-muted">${fmtTime(r.candle_time)}</td>
+        <td class="mono">${r.symbol}</td>
+        <td class="cell-muted">${r.market}</td>
+        <td class="mono cell-muted">${r.timeframe}</td>
+        <td>${directionBadge(r.direction)}</td>
+        <td>${biasBadge(r.m15_bias)}</td>
+        <td><span class="chip">${r.pattern.replace(/_/g, ' ')}</span></td>
+        <td class="mono cell-muted">${r.zone_type} @ ${Number(r.zone_level).toFixed(4)}</td>
+        <td class="mono">${Number(r.price).toFixed(4)}</td>
+        <td class="mono cell-muted" style="font-size:11px">${r.structure_event}</td>
+        <td>${statusBadge(r.notified)}</td>
+        <td class="mono cell-muted">${fmtTime(r.created_at)}</td>
+      </tr>
+    `).join('');
+  }
+
+  function renderError(msg) {
+    document.getElementById('tbody').innerHTML = `
+      <tr class="state-row">
+        <td colspan="12">
+          <span class="state-icon">⚠️</span>
+          <div class="state-title">Gagal memuat data</div>
+          <div class="state-desc">${msg}</div>
+        </td>
+      </tr>`;
+  }
+
+  // ── load ───────────────────────────────────────────────────────────────────
+  async function load(offset = 0) {
+    currentOffset = offset;
+    renderSkeleton();
+
+    try {
+      const data = await fetchSignals(offset);
+      currentTotal = data.total || 0;
+
+      // isi dropdown symbol (sekali saja kalau belum ada option)
+      const sel = document.getElementById('fSymbol');
+      if (sel.options.length === 1 && data.symbols?.length) {
+        data.symbols.forEach(s => {
+          const opt = document.createElement('option');
+          opt.value = s; opt.textContent = s;
+          sel.appendChild(opt);
+        });
+      }
+
+      renderRows(data.signals || []);
+      updatePagination();
+      document.getElementById('totalBadge').textContent =
+        `${currentTotal.toLocaleString('id-ID')} signal`;
+
+    } catch (err) {
+      renderError(err.message);
+    }
+  }
+
+  function updatePagination() {
+    const limit = getLimit();
+    const from  = currentTotal ? currentOffset + 1 : 0;
+    const to    = Math.min(currentOffset + limit, currentTotal);
+    document.getElementById('pagInfo').textContent =
+      `${from}–${to} dari ${currentTotal.toLocaleString('id-ID')}`;
+    document.getElementById('prevBtn').disabled = currentOffset <= 0;
+    document.getElementById('nextBtn').disabled = currentOffset + limit >= currentTotal;
+  }
+
+  // ── pagination ─────────────────────────────────────────────────────────────
+  document.getElementById('prevBtn').addEventListener('click', () => {
+    if (currentOffset > 0) load(Math.max(0, currentOffset - getLimit()));
+  });
+  document.getElementById('nextBtn').addEventListener('click', () => {
+    if (currentOffset + getLimit() < currentTotal) load(currentOffset + getLimit());
+  });
+
+  // ── filter controls ────────────────────────────────────────────────────────
+  ['fSymbol', 'fDirection', 'fStatus', 'fLimit'].forEach(id => {
+    document.getElementById(id).addEventListener('change', () => load(0));
+  });
+
+  document.getElementById('clearBtn').addEventListener('click', () => {
+    document.getElementById('fSymbol').value    = '';
+    document.getElementById('fDirection').value = '';
+    document.getElementById('fStatus').value    = '';
+    document.getElementById('fLimit').value     = '50';
+    load(0);
+  });
+
+  // ── auto-refresh ───────────────────────────────────────────────────────────
+  const liveBtn   = document.getElementById('liveBtn');
+  const liveBtnLbl = document.getElementById('liveBtnLabel');
+
+  liveBtn.addEventListener('click', () => {
+    liveActive = !liveActive;
+    liveBtn.classList.toggle('active', liveActive);
+    liveBtnLbl.textContent = liveActive ? 'Live' : 'Auto-refresh';
+    if (liveActive) {
+      liveInterval = setInterval(() => load(currentOffset), 30_000);
+    } else {
+      clearInterval(liveInterval);
+    }
+  });
+
+  // ── init ───────────────────────────────────────────────────────────────────
+  load(0);
+</script>
+</body>
+</html>

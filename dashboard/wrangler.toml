@@ -1,0 +1,13 @@
+# Cloudflare Pages — dashboard tv-alert-relay
+# File ini dipakai untuk local dev: wrangler pages dev .
+# Untuk production, D1 binding dikonfigurasi di Cloudflare Pages project settings.
+
+name = "tvtm-dashboard"
+compatibility_date = "2024-09-02"
+pages_build_output_dir = "."
+
+[[d1_databases]]
+binding = "DB"
+database_name = "tv-alert-relay"
+# Ganti dengan Database ID D1 kamu:
+database_id   = "REPLACE_WITH_YOUR_D1_DATABASE_ID"
