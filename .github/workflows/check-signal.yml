@@ -15,14 +15,21 @@ jobs:
     timeout-minutes: 4
     steps:
       - uses: actions/checkout@v4
-
+      - name: Verify D1 target
+        env:
+          CONFIGURED_D1_ID: 29a7a81e-f41b-4d02-86c2-d387774723c9
+          SECRET_D1_ID: ${{ secrets.CF_D1_DATABASE_ID }}
+        run: |
+          if [ "$SECRET_D1_ID" != "$CONFIGURED_D1_ID" ]; then
+            echo "::error::CF_D1_DATABASE_ID secret tidak menunjuk ke tv-alert-relay yang dipakai dashboard."
+            exit 1
+          fi
+          echo "D1 target OK: tv-alert-relay ($CONFIGURED_D1_ID)"
       - uses: actions/setup-python@v5
         with:
           python-version: '3.12'
-
       - name: Install dependencies
         run: pip install -r requirements.txt
-
       - name: Run signal engine
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
