@@ -2,6 +2,11 @@
 Model data inti untuk engine price action.
 Semua modul struktur/strategi bertukar data lewat dataclass di sini
 supaya kontraknya eksplisit dan gampang di-unit-test.
+
+UPGRADE: Signal ditambah field risk management (stop_loss, take_profit,
+risk_reward, atr, zone_tolerance_pct_used) supaya hasil sinyal bukan cuma
+"price action valid" tapi juga bawa level eksekusi + ukuran risikonya.
+Semua field baru Optional dan default None supaya backward compatible.
 """
 
 from __future__ import annotations
@@ -133,7 +138,6 @@ class Zone:
 
     @property
     def zone_key(self) -> str:
-        # kunci unik zona: tipe + level (dibulatkan) + waktu event struktur pembentuknya
         return f"{self.zone_type.value}:{round(self.level, 6)}:{self.structure_event_candle_time}"
 
 
@@ -167,6 +171,14 @@ class Signal:
     candle_open_time_ms: int
     signal_key: str
     cooldown_key: str
+    # --- risk management (upgrade) ---
+    stop_loss: Optional[float] = None
+    take_profit_1: Optional[float] = None
+    take_profit_2: Optional[float] = None
+    risk_reward_1: Optional[float] = None
+    risk_reward_2: Optional[float] = None
+    atr: Optional[float] = None
+    zone_tolerance_pct_used: Optional[float] = None
 
     def to_payload(self) -> dict:
         return {
@@ -180,4 +192,12 @@ class Signal:
             "structure_event": self.structure_event,
             "pattern": self.pattern,
             "candle_time": self.candle_time_iso,
+            "risk": {
+                "stop_loss": self.stop_loss,
+                "take_profit_1": self.take_profit_1,
+                "take_profit_2": self.take_profit_2,
+                "risk_reward_1": self.risk_reward_1,
+                "risk_reward_2": self.risk_reward_2,
+                "atr": self.atr,
+            },
         }

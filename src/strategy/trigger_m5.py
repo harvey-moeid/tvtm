@@ -1,19 +1,30 @@
 """
-M5 Entry Trigger — PRD §11 (BUY & SELL, semua syarat wajib terpenuhi).
+M5 Entry Trigger - PRD 11, + upgrade menyeluruh.
 
-Urutan evaluasi:
-1. Bias M15 harus BULLISH/BEARISH (NEUTRAL -> tidak ada signal, PRD §10 akhir).
-2. Bangun zona aktif (support utk BULLISH, resistance utk BEARISH) dari struktur M15.
+Urutan evaluasi (upgrade dari versi awal ditandai [BARU]):
+1. Bias M15 harus BULLISH/BEARISH (NEUTRAL -> tidak ada signal).
+2. Bangun zona aktif dari struktur M15.
+   [BARU] Toleransi zona dihitung ADAPTIF terhadap ATR M15, bukan persentase
+   statis semata (lihat src/strategy/zones.py).
 3. Candle M5 terakhir (closed) harus retest/menyentuh zona.
-4. Candle M5 tsb harus pin bar atau engulfing sesuai arah bias.
-5. Lolos anti-noise filter (dicek di dalam masing-masing pattern detector).
-6. Belum kena cooldown untuk cooldown_key yang sama.
+4. [BARU] Kalau requireVolumeConfirmation aktif: volume candle trigger harus
+   >= rata-rata x multiplier (confluence tambahan di luar price action murni).
+5. Candle M5 tsb harus pin bar atau engulfing sesuai arah bias, lolos
+   anti-noise filter masing-masing pattern.
+6. [BARU] Hitung risk levels: SL berbasis level zona + buffer ATR M5, TP
+   berbasis kelipatan R. Kalau requireRiskManagement aktif dan risk:reward
+   atau jarak SL tidak layak, sinyal DIBATALKAN - sebelumnya tidak ada
+   konsep "price action valid tapi risknya tidak layak", semua yang lolos
+   langkah 1-5 langsung dikirim apa adanya.
+7. Belum kena cooldown_key (permanen per setup struktural, PRD 14) DAN
+   [BARU] belum kena rate-limit waktu (cooldownMinutes, kini benar-benar aktif).
 """
 
 from __future__ import annotations
 
 from typing import List, Optional
 
+from src.indicators.atr import compute_atr
 from src.models import (
     Bias,
     Candle,
@@ -26,8 +37,10 @@ from src.models import (
 from src.patterns.engulfing import detect_bearish_engulfing, detect_bullish_engulfing
 from src.patterns.pin_bar import detect_bearish_pin_bar, detect_bullish_pin_bar
 from src.storage.d1_client import D1Client
-from src.strategy.cooldown import build_cooldown_key, is_in_cooldown
-from src.strategy.zones import build_active_zone
+from src.strategy.cooldown import build_cooldown_key, is_in_cooldown, is_rate_limited
+from src.strategy.risk import compute_risk_levels
+from src.strategy.volume_filter import passes_volume_filter
+from src.strategy.zones import build_active_zone, compute_zone_tolerance_pct
 
 
 def evaluate_m5_trigger(
@@ -36,6 +49,7 @@ def evaluate_m5_trigger(
     market: str,
     m15_bias: Bias,
     m15_structure: StructureResult,
+    m15_candles: List[Candle],
     m5_candles: List[Candle],
     cfg: dict,
     d1: D1Client,
@@ -49,10 +63,20 @@ def evaluate_m5_trigger(
     if zone is None:
         return None
 
+    atr_period = cfg.get("atrPeriod", 14)
+    m15_atr = compute_atr(m15_candles, atr_period)
+    m5_atr = compute_atr(m5_candles, atr_period)
+    # Toleransi zona di-refresh jadi adaptif (fallback otomatis ke statis
+    # kalau ATR M15 belum tersedia atau zoneAtrMultiplier tidak diset).
+    zone.tolerance_pct = compute_zone_tolerance_pct(zone.level, m15_atr, cfg)
+
     curr = m5_candles[-1]
     prev = m5_candles[-2]
 
     if not zone.is_touched_by(curr):
+        return None
+
+    if not passes_volume_filter(m5_candles, cfg):
         return None
 
     wick_ratio = cfg["pinBarWickToBodyRatio"]
@@ -80,6 +104,18 @@ def evaluate_m5_trigger(
     if direction is None:
         return None
 
+    risk = None
+    if cfg.get("requireRiskManagement", True):
+        risk = compute_risk_levels(
+            direction=direction,
+            entry_price=curr.close,
+            structure_stop_price=zone.level,
+            atr=m5_atr,
+            cfg=cfg,
+        )
+        if not risk.valid:
+            return None
+
     cooldown_key = build_cooldown_key(
         symbol=symbol,
         timeframe="5m",
@@ -89,7 +125,9 @@ def evaluate_m5_trigger(
         structure_event_candle_time=m15_structure.event_candle_time,
         direction=direction.value,
     )
-    if is_in_cooldown(d1, cooldown_key, cfg["cooldownMinutes"]):
+    if is_in_cooldown(d1, cooldown_key):
+        return None
+    if is_rate_limited(d1, symbol, "5m", direction.value, cfg.get("cooldownMinutes", 0)):
         return None
 
     signal_key = f"{symbol}:{market}:5m:{curr.candle_time_iso}:{direction.value}"
@@ -110,4 +148,11 @@ def evaluate_m5_trigger(
         candle_open_time_ms=curr.open_time,
         signal_key=signal_key,
         cooldown_key=cooldown_key,
+        stop_loss=risk.stop_loss if risk else None,
+        take_profit_1=risk.take_profit_1 if risk else None,
+        take_profit_2=risk.take_profit_2 if risk else None,
+        risk_reward_1=risk.risk_reward_1 if risk else None,
+        risk_reward_2=risk.risk_reward_2 if risk else None,
+        atr=m5_atr,
+        zone_tolerance_pct_used=zone.tolerance_pct,
     )

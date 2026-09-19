@@ -3,12 +3,25 @@
     "swingLookback": 2,
     "minHistoricalCandles": 200,
     "zoneTolerancePct": 0.10,
+    "zoneTolerancePctFloor": 0.05,
+    "zoneAtrMultiplier": 0.5,
     "minEngulfingBodyRangeRatio": 0.35,
     "minPinBarBodyRangeRatio": 0.03,
     "pinBarWickToBodyRatio": 2.0,
     "cooldownMinutes": 60,
     "minStructureConfirmation": 1,
-    "standaloneM15Signals": false
+    "structureBreakBufferPct": 0.05,
+    "standaloneM15Signals": false,
+    "atrPeriod": 14,
+    "requireRiskManagement": true,
+    "slAtrBufferMultiplier": 0.25,
+    "minStopDistancePct": 0.05,
+    "maxStopDistancePct": 5.0,
+    "riskRewardTargets": [1.5, 3.0],
+    "minRiskRewardRatio": 1.2,
+    "requireVolumeConfirmation": false,
+    "volumeLookbackCandles": 20,
+    "minVolumeMultiplier": 1.0
   },
   "overrides": {
     "BTCUSDT": {

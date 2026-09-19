@@ -1,16 +1,27 @@
 """
-Cooldown & duplicate prevention — PRD §14.
+Cooldown & duplicate prevention - PRD 14, + upgrade rate-limit waktu aktif.
 
-Suppression PERMANEN per cooldown_key (symbol+timeframe+zone+structure_event+direction)
-selama record dengan key yang sama SUDAH pernah ter-notify di D1. cooldown_key
-otomatis "invalid" begitu ada BOS/CHoCH baru / zona baru, karena key tsb
-menyertakan structure_event_candle_time (timestamp event pembentuk zona) —
-begitu event berganti, key ikut berganti, sehingga syarat PRD §14
-(BOS/CHoCH baru, zona baru, atau setup lama invalid) terpenuhi otomatis.
+Dua lapis proteksi independen:
 
-Tambahan: cooldown_minutes sebagai rate-limit suplemen supaya symbol/timeframe
-yang sama tidak spam notifikasi walau struktur belum berubah sama sekali
-dalam rentang waktu sangat pendek (proteksi ekstra, bukan pengganti aturan di atas).
+1. is_in_cooldown(cooldown_key)
+   Suppression PERMANEN per cooldown_key (symbol+timeframe+zone+structure_event
+   +direction). cooldown_key otomatis berganti begitu ada BOS/CHoCH baru / zona
+   baru (menyertakan structure_event_candle_time), jadi layer ini murni
+   "jangan ulang notif untuk setup struktural yang SAMA PERSIS". Perilaku
+   IDENTIK dengan versi awal.
+
+2. is_rate_limited(symbol, timeframe, direction, cooldown_minutes)  [BARU]
+   Versi awal punya parameter `cooldown_minutes` di strategy.json tapi TIDAK
+   PERNAH dipakai di kode (docstring versi awal mengakuinya secara eksplisit)
+   - jadi kalaupun di-tuning, tidak ada efeknya sama sekali. Fungsi ini
+   mengisi kekosongan itu: proteksi tambahan berbasis waktu murni, supaya
+   walau setup struktural berbeda (zona baru / event baru, sehingga
+   cooldown_key ikut berbeda), tetap ada jeda minimum antar notifikasi untuk
+   symbol+timeframe+arah yang sama - mencegah spam saat market membentuk
+   banyak BOS/CHoCH kecil berturut-turut dalam waktu singkat (choppy
+   breakout-retest-breakout).
+   cooldown_minutes <= 0 -> layer ini dimatikan (no-op, return False),
+   sehingga default lama (kalau operator set 0) tetap bisa direplikasi.
 """
 
 from __future__ import annotations
@@ -26,20 +37,26 @@ def build_cooldown_key(symbol: str, timeframe: str, zone_type: str, zone_level: 
     )
 
 
-def is_in_cooldown(d1: D1Client, cooldown_key: str, cooldown_minutes: int) -> bool:
-    """
-    True kalau cooldown_key ini SUDAH pernah dinotifikasi sebelumnya.
-    Karena cooldown_key menyertakan structure_event_candle_time, key otomatis
-    berubah begitu ada BOS/CHoCH baru atau zona baru terbentuk (PRD §14),
-    jadi suppression di sini valid bersifat permanen per key — bukan time-based.
-
-    `cooldown_minutes` tetap disediakan di strategy.json sebagai parameter
-    tuning eksplisit (mis. kalau ke depan mau ditambah rate-limit tambahan
-    per symbol+timeframe di luar aturan cooldown_key), tapi versi ini belum
-    memakainya secara aktif supaya perilaku tetap sesuai PRD §14 apa adanya.
-    """
+def is_in_cooldown(d1: D1Client, cooldown_key: str) -> bool:
     row = d1.query_one(
         "SELECT id FROM signals WHERE cooldown_key = ? AND notified = 1 LIMIT 1",
         [cooldown_key],
+    )
+    return row is not None
+
+
+def is_rate_limited(
+    d1: D1Client, symbol: str, timeframe: str, direction: str, cooldown_minutes: int
+) -> bool:
+    if cooldown_minutes is None or cooldown_minutes <= 0:
+        return False
+    row = d1.query_one(
+        """
+        SELECT id FROM signals
+        WHERE symbol = ? AND timeframe = ? AND direction = ? AND notified = 1
+          AND created_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)
+        LIMIT 1
+        """,
+        [symbol, timeframe, direction, f"-{int(cooldown_minutes)} minutes"],
     )
     return row is not None
