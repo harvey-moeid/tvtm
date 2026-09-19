@@ -1,6 +1,6 @@
 """
 Orkestrasi per market: fetch M15 + M5 -> bias -> trigger -> idempotency -> notify.
-Setiap market dievaluasi terisolasi (PRD §20): 1 market gagal tidak boleh
+Setiap market dievaluasi terisolasi (PRD 20): 1 market gagal tidak boleh
 menghentikan evaluasi market lain.
 """
 
@@ -38,7 +38,12 @@ def evaluate_market(market_cfg: dict, strategy_cfg: dict, d1: D1Client) -> Optio
         log.warning("[%s] skip: M5 candles tidak tersedia", market_id)
         return None
 
-    bias_result = compute_m15_bias(m15_candles, swing_lookback)
+    bias_result = compute_m15_bias(
+        m15_candles,
+        swing_lookback,
+        min_structure_confirmation=strategy_cfg.get("minStructureConfirmation", 1),
+        structure_break_buffer_pct=strategy_cfg.get("structureBreakBufferPct", 0.0),
+    )
     log.info(
         "[%s] M15 bias=%s trend=%s event=%s",
         market_id, bias_result.bias.value, bias_result.structure.trend.value,
@@ -51,6 +56,7 @@ def evaluate_market(market_cfg: dict, strategy_cfg: dict, d1: D1Client) -> Optio
         market=market_type,
         m15_bias=bias_result.bias,
         m15_structure=bias_result.structure,
+        m15_candles=m15_candles,
         m5_candles=m5_candles,
         cfg=strategy_cfg,
         d1=d1,
