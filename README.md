@@ -50,12 +50,30 @@ Seluruh stack aplikasi murni Python.
 - `src/config/symbols.json` - daftar market + mapping simbol exchange.
 - `src/config/strategy.json` - parameter tuning dengan override per-symbol.
 
+### Sumber data market (Kraken)
+
+Runner GitHub Actions berada di server AS, dan Binance membalas HTTP 451 (diblokir
+lokasi) ke IP tersebut, jadi data candle diambil dari **Kraken spot**
+(`kraken_spot` di `src/market/exchange_adapter.py`, endpoint publik `/0/public/OHLC`):
+
+- `BTCUSDT` -> pair Kraken `XBTUSD` (BTC/USD, spot; sebelumnya Binance USDT-M futures).
+- `GOLDUSDT` -> pair Kraken `PAXGUSD` (PAX Gold/USD, spot).
+
+Harga dalam **USD**, bukan USDT; label `BTCUSDT`/`GOLDUSDT` dipertahankan supaya
+override di `strategy.json` dan data di D1 tetap konsisten. Kraken hanya membuat
+candle kalau ada transaksi, jadi gap ditambal candle datar (volume 0); ini relevan
+kalau `requireVolumeConfirmation` diaktifkan, terutama untuk PAXG yang likuiditasnya tipis.
+
+Kalau semua market gagal mengambil data candle, `python -m src.main` keluar dengan
+kode 1 sehingga run di GitHub Actions berwarna merah (sebelumnya tetap hijau dengan
+"no signal generated").
+
 ### Catatan penting soal simbol GOLDUSDT (AC-14 PRD)
 
 Tidak ada pair asli "GOLDUSDT" di exchange manapun. Implementasi ini memakai
-**`PAXGUSDT`** (PAX Gold/USDT, Binance spot) sebagai proxy - PAXG melacak harga
-emas 1:1 per troy ounce. **Wajib divalidasi/diganti** dengan data provider resmi
-sebelum dipakai untuk keputusan production, sesuai catatan di `symbols.json`.
+**PAX Gold (PAXG)** sebagai proxy - PAXG melacak harga emas 1:1 per troy ounce.
+**Wajib divalidasi/diganti** dengan data provider resmi sebelum dipakai untuk
+keputusan production, sesuai catatan di `symbols.json`.
 
 ## Anti-noise filter (§13 PRD)
 
@@ -179,7 +197,7 @@ dan perlu ditinjau dengan data historis riil sebelum dipakai penuh di production
 
 ## Test suite
 
-Upgrade ini menyertakan unit + integration test (66 test, `tests/`) yang mengunci
+Upgrade ini menyertakan unit + integration test (79 test, `tests/`) yang mengunci
 perilaku setiap modul murni (ATR, struktur, BOS/CHoCH, zona, pattern, risk management,
 volume filter, cooldown/rate-limit, idempotency) plus 1 integration test end-to-end
 `evaluate_m5_trigger` pakai data candle sintetis dan D1 client palsu in-memory (tidak
