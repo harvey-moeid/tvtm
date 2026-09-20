@@ -1,7 +1,7 @@
 """
 Adapter exchange/provider market data.
 Memisahkan simbol internal (BTCUSDT, GOLDUSDT) dari simbol exchange aktual
-(mis. XBTUSD / PAXGUSD di Kraken) sesuai PRD §1 & §7.
+(mis. BTC-USDT-SWAP / PAXG-USDT di OKX) sesuai PRD §1 & §7.
 
 Setiap adapter wajib:
 - return list[Candle] terurut ascending berdasarkan open_time
@@ -98,8 +98,8 @@ _MAX_GAP_FILL = 720
 
 class KrakenSpotAdapter(ExchangeAdapter):
     """
-    Kraken spot public OHLC. Dipakai karena Binance membalas HTTP 451 ke IP runner
-    GitHub Actions (server AS), sedangkan Kraken bisa diakses dari sana.
+    Kraken spot public OHLC. Alternatif sumber data (bukan yang aktif di symbols.json)
+    kalau OKX bermasalah; Binance membalas HTTP 451 ke IP runner GitHub Actions (AS).
 
     exchange_symbol = kode pair Kraken, mis. "XBTUSD" (BTC/USD) atau "PAXGUSD"
     (PAXG/USD). Harga dalam USD, bukan USDT.
@@ -179,10 +179,94 @@ def _parse_kraken_ohlc(payload: dict, timeframe: str, limit: int, now_ms: int) -
     return candles[-limit:]
 
 
+OKX_BASE = "https://www.okx.com"
+
+_OKX_BAR = {"5m": "5m", "15m": "15m"}
+
+# Batas maksimum parameter limit endpoint /api/v5/market/candles.
+_OKX_MAX_LIMIT = 300
+
+
+class OkxAdapter(ExchangeAdapter):
+    """
+    OKX v5 public market data (tanpa API key), spot maupun perpetual swap.
+
+    exchange_symbol = instId OKX, mis. "BTC-USDT-SWAP" (perp USDT-margined, setara
+    Binance USDT-M futures) atau "PAXG-USDT" (spot). Dipakai karena Binance (HTTP 451)
+    dan Bybit (HTTP 403) memblokir IP runner GitHub Actions.
+    """
+
+    name = "okx"
+
+    def fetch_klines(self, exchange_symbol: str, timeframe: str, limit: int) -> List[Candle]:
+        if timeframe not in _OKX_BAR:
+            raise ValueError(f"Timeframe tidak didukung OKX adapter: {timeframe}")
+        resp = requests.get(
+            f"{OKX_BASE}/api/v5/market/candles",
+            params={
+                "instId": exchange_symbol,
+                "bar": _OKX_BAR[timeframe],
+                "limit": min(limit, _OKX_MAX_LIMIT),
+            },
+            timeout=15,
+        )
+        resp.raise_for_status()
+        return _parse_okx_candles(resp.json(), exchange_symbol, timeframe, int(time.time() * 1000))
+
+
+def _parse_okx_candles(payload: dict, inst_id: str, timeframe: str, now_ms: int) -> List[Candle]:
+    """
+    Ubah respons OKX /market/candles jadi list[Candle] ascending.
+
+    - OKX membalas HTTP 200 walau gagal; kegagalan ada di field "code" (bukan "0"),
+      mis. 51001 = instId tidak ada.
+    - Baris: [ts_ms, open, high, low, close, vol, volCcy, volCcyQuote, confirm],
+      terurut TERBARU dulu. confirm "1" = candle sudah closed, "0" = masih berjalan.
+    - Satuan volume beda antar jenis instrumen: SPOT -> `vol` sudah dalam koin dasar
+      (diverifikasi pada data PAXG-USDT); SWAP -> `vol` dalam jumlah kontrak, sedangkan
+      `volCcy` dalam koin dasar (menurut dokumentasi OKX, belum diverifikasi langsung).
+      Dipakai volume koin dasar supaya konsisten dengan feed Binance.
+    - Interval tanpa transaksi tetap dikirim OKX sebagai candle datar (volume 0),
+      jadi deret waktunya kontigu dan tidak perlu ditambal di sini.
+    """
+    code = str(payload.get("code", ""))
+    if code != "0":
+        raise RuntimeError(f"OKX API error {code}: {payload.get('msg', '')}")
+
+    rows = payload.get("data") or []
+    if not rows:
+        raise RuntimeError("OKX candles kosong")
+
+    interval_ms = _INTERVAL_MS[timeframe]
+    vol_idx = 6 if inst_id.endswith("-SWAP") else 5
+
+    candles: List[Candle] = []
+    for r in rows:
+        open_time = int(r[0])
+        ended = (open_time + interval_ms) <= now_ms
+        confirmed = (str(r[8]) == "1") if len(r) > 8 else ended
+        volume = float(r[vol_idx]) if len(r) > vol_idx else float(r[5])
+        candles.append(
+            Candle(
+                open_time=open_time,
+                close_time=open_time + interval_ms - 1,
+                open=float(r[1]),
+                high=float(r[2]),
+                low=float(r[3]),
+                close=float(r[4]),
+                volume=volume,
+                is_closed=confirmed and ended,
+            )
+        )
+    candles.sort(key=lambda c: c.open_time)
+    return candles
+
+
 ADAPTERS = {
     "binance_futures": BinanceFuturesAdapter(),
     "binance_spot": BinanceSpotAdapter(),
     "kraken_spot": KrakenSpotAdapter(),
+    "okx": OkxAdapter(),
 }
 
 

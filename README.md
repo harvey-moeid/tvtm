@@ -50,19 +50,28 @@ Seluruh stack aplikasi murni Python.
 - `src/config/symbols.json` - daftar market + mapping simbol exchange.
 - `src/config/strategy.json` - parameter tuning dengan override per-symbol.
 
-### Sumber data market (Kraken)
+### Sumber data market (OKX)
 
-Runner GitHub Actions berada di server AS, dan Binance membalas HTTP 451 (diblokir
-lokasi) ke IP tersebut, jadi data candle diambil dari **Kraken spot**
-(`kraken_spot` di `src/market/exchange_adapter.py`, endpoint publik `/0/public/OHLC`):
+Runner GitHub Actions berada di server AS. Dari sana Binance membalas HTTP 451 (diblokir
+lokasi) dan Bybit membalas 403, jadi data candle diambil dari **OKX v5 public API**
+(`okx` di `src/market/exchange_adapter.py`, `GET /api/v5/market/candles`, tanpa API key):
 
-- `BTCUSDT` -> pair Kraken `XBTUSD` (BTC/USD, spot; sebelumnya Binance USDT-M futures).
-- `GOLDUSDT` -> pair Kraken `PAXGUSD` (PAX Gold/USD, spot).
+- `BTCUSDT` -> `BTC-USDT-SWAP` (perpetual USDT-margined; setara Binance USDT-M futures).
+- `GOLDUSDT` -> `PAXG-USDT` (PAX Gold/USDT, **spot**). OKX tidak punya perpetual emas
+  (`XAUT-USDT-SWAP` dan `PAXG-USDT-SWAP` tidak ada), dan spot PAXG di OKX likuiditasnya
+  tipis: banyak candle 5m tanpa transaksi (datar, volume 0). OKX sendiri mengirim interval
+  kosong sebagai candle datar, jadi deret waktunya tetap kontigu.
 
-Harga dalam **USD**, bukan USDT; label `BTCUSDT`/`GOLDUSDT` dipertahankan supaya
-override di `strategy.json` dan data di D1 tetap konsisten. Kraken hanya membuat
-candle kalau ada transaksi, jadi gap ditambal candle datar (volume 0); ini relevan
-kalau `requireVolumeConfirmation` diaktifkan, terutama untuk PAXG yang likuiditasnya tipis.
+Catatan teknis: candle OKX datang terbaru-dulu dan punya flag `confirm` (1 = closed);
+adapter membalik urutannya dan hanya menganggap closed kalau `confirm=1` DAN waktunya sudah
+lewat. Satuan volume beda per jenis instrumen (spot: `vol` = koin dasar, sudah dicek pada data
+PAXG-USDT; swap: `volCcy` = koin dasar dan `vol` = jumlah kontrak menurut dokumentasi OKX,
+belum dicek langsung), dan adapter menormalkannya ke koin dasar. Limit OKX
+maksimal 300 candle per panggilan (bot butuh ~205). IP runner GitHub dipakai bersama, jadi
+HTTP 429 (rate limit) sesekali mungkin terjadi; fetch sudah retry 3x dengan jeda 2 detik.
+
+Adapter lain (`kraken_spot`, `binance_spot`, `binance_futures`) tetap terdaftar dan bisa
+dipilih lewat field `exchange` di `symbols.json`.
 
 Kalau semua market gagal mengambil data candle, `python -m src.main` keluar dengan
 kode 1 sehingga run di GitHub Actions berwarna merah (sebelumnya tetap hijau dengan
@@ -197,7 +206,7 @@ dan perlu ditinjau dengan data historis riil sebelum dipakai penuh di production
 
 ## Test suite
 
-Upgrade ini menyertakan unit + integration test (79 test, `tests/`) yang mengunci
+Upgrade ini menyertakan unit + integration test (89 test, `tests/`) yang mengunci
 perilaku setiap modul murni (ATR, struktur, BOS/CHoCH, zona, pattern, risk management,
 volume filter, cooldown/rate-limit, idempotency) plus 1 integration test end-to-end
 `evaluate_m5_trigger` pakai data candle sintetis dan D1 client palsu in-memory (tidak
