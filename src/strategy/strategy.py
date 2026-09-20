@@ -19,6 +19,14 @@ from src.strategy.trigger_m5 import evaluate_m5_trigger
 log = logging.getLogger("strategy")
 
 
+class MarketDataUnavailable(RuntimeError):
+    """Candle M15/M5 tidak bisa diambil (mis. exchange memblokir / down).
+
+    Dibedakan dari "tidak ada sinyal" supaya kegagalan data tidak terlihat
+    seperti run normal tanpa sinyal.
+    """
+
+
 def evaluate_market(market_cfg: dict, strategy_cfg: dict, d1: D1Client) -> Optional[Signal]:
     market_id = market_cfg["id"]
     symbol = market_cfg["symbol"]
@@ -30,13 +38,11 @@ def evaluate_market(market_cfg: dict, strategy_cfg: dict, d1: D1Client) -> Optio
 
     m15_candles = fetch_closed_candles(exchange, exchange_symbol, "15m", min_history)
     if not m15_candles:
-        log.warning("[%s] skip: M15 candles tidak tersedia", market_id)
-        return None
+        raise MarketDataUnavailable("M15 candles tidak tersedia")
 
     m5_candles = fetch_closed_candles(exchange, exchange_symbol, "5m", min_history)
     if not m5_candles:
-        log.warning("[%s] skip: M5 candles tidak tersedia", market_id)
-        return None
+        raise MarketDataUnavailable("M5 candles tidak tersedia")
 
     bias_result = compute_m15_bias(
         m15_candles,

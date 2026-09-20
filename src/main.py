@@ -4,7 +4,7 @@ import sys
 from datetime import datetime, timezone
 from src.config_loader import load_strategy_config, load_symbols, require_env
 from src.storage.d1_client import D1Client
-from src.strategy.strategy import dispatch_signal, evaluate_market
+from src.strategy.strategy import MarketDataUnavailable, dispatch_signal, evaluate_market
 
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(name)s: %(message)s")
 log = logging.getLogger("main")
@@ -31,7 +31,7 @@ def main() -> int:
         return 1
 
     markets = load_symbols()
-    summary = {"evaluated": 0, "skipped": 0, "signals": 0, "notified": 0, "errors": 0}
+    summary = {"evaluated": 0, "skipped": 0, "signals": 0, "notified": 0, "errors": 0, "data_errors": 0}
     for market_cfg in markets:
         if not market_cfg.get("enabled", True):
             continue
@@ -50,6 +50,9 @@ def main() -> int:
                      signal.pattern, signal.zone_level, signal.risk_reward_1)
             if dispatch_signal(webhook_url, d1, signal):
                 summary["notified"] += 1
+        except MarketDataUnavailable as e:
+            summary["data_errors"] += 1
+            log.error("[%s] data market tidak tersedia: %s", market_id, e)
         except Exception as e:
             summary["errors"] += 1
             log.exception("[%s] error tak terduga: %s", market_id, e)
@@ -61,9 +64,14 @@ def main() -> int:
         log.exception("D1 postflight gagal: %s", e)
 
     duration = (datetime.now(timezone.utc) - started_at).total_seconds()
-    log.info("=== run selesai (%.2fs) | evaluated=%d skipped=%d signals=%d notified=%d errors=%d ===",
+    log.info("=== run selesai (%.2fs) | evaluated=%d skipped=%d signals=%d notified=%d errors=%d data_errors=%d ===",
              duration, summary["evaluated"], summary["skipped"], summary["signals"],
-             summary["notified"], summary["errors"])
+             summary["notified"], summary["errors"], summary["data_errors"])
+
+    # Semua market gagal ambil data = engine praktis mati; run harus merah supaya terlihat.
+    if summary["evaluated"] > 0 and summary["data_errors"] == summary["evaluated"]:
+        log.error("Semua market gagal mengambil data candle; run ditandai gagal.")
+        return 1
     return 0
 
 if __name__ == "__main__":
