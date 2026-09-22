@@ -9,11 +9,11 @@ Status: `[ ]` belum, `[x]` selesai, `[~]` sedang dikerjakan.
 
 ## 1. Engine — deteksi konsep ICT tambahan
 
-- [ ] `src/structure/fvg.py` — detektor Fair Value Gap (bullish & bearish, 3-candle imbalance)
-- [ ] `src/structure/order_block.py` — detektor Order Block (bullish & bearish, candle terakhir sebelum impulsive move)
+- [x] `src/structure/fvg.py` — detektor Fair Value Gap (bullish & bearish, 3-candle imbalance) + mitigasi
+- [x] `src/structure/order_block.py` — detektor Order Block (bullish & bearish, candle terakhir sebelum impulsive move) + mitigasi
 - [ ] `src/strategy/liquidity.py` — deteksi liquidity sweep (equal highs/lows, stop hunt wick)
 - [ ] `src/strategy/volume_profile.py` — hitung volume per price-level (bucket) dari candle window
-- [ ] `src/models.py` — tambah dataclass `FairValueGap`, `OrderBlock`, `LiquiditySweep`, `VolumeProfileLevel`
+- [x] `src/models.py` — tambah dataclass `FairValueGap`, `OrderBlock`, `LiquiditySweep`, `VolumeProfileLevel`, `VolumeProfileResult`, `ScoreComponent`, `ScoreResult`; `Signal` ditambah field `confidence_pct`/`score`/`checklist`
 - [ ] `src/config/strategy.json` — parameter baru: `fvgMinGapPct`, `obLookback`, `liquidityEqualTolerancePct`, `volumeProfileBucketCount`
 
 ## 2. Engine — scoring & confidence
