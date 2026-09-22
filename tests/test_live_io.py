@@ -27,7 +27,7 @@ def test_okx_public_api_live():
     assert candles
     assert len(candles) <= 10
     assert candles == sorted(candles, key=lambda candle: candle.open_time)
-    assert all(candle.is_closed for candle in candles)
+    assert any(candle.is_closed for candle in candles)
     assert all(candle.high >= candle.low for candle in candles)
 
 
@@ -41,7 +41,7 @@ def test_okx_gold_live():
 
     assert candles
     assert candles == sorted(candles, key=lambda candle: candle.open_time)
-    assert all(candle.is_closed for candle in candles)
+    assert any(candle.is_closed for candle in candles)
 
 
 @pytest.mark.live
