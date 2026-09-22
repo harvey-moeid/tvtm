@@ -1,7 +1,7 @@
 """
 Adapter exchange/provider market data.
 Memisahkan simbol internal (BTCUSDT, GOLDUSDT) dari simbol exchange aktual
-(mis. BTC-USDT-SWAP / PAXG-USDT di OKX) sesuai PRD bagian 1 dan 7.
+(mis. BTC-USDT-SWAP atau XAU-USDT-SWAP di OKX) sesuai PRD bagian 1 dan 7.
 
 Setiap adapter wajib:
 - return list[Candle] terurut ascending berdasarkan open_time
