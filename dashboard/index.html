@@ -42,7 +42,7 @@ button,select,input{font:inherit}button{cursor:pointer}.app{max-width:1500px;mar
     <div class="chart-title">Price Chart</div>
     <div class="chart-controls">
       <select id="chartSymbol"><option value="BTCUSDT">BTCUSDT</option><option value="GOLDUSDT">GOLDUSDT</option></select>
-      <select id="chartTf"><option value="15m" selected>M15</option><option value="5m">M5</option></select>
+      <select id="chartTf"><option value="15m">M15</option><option value="5m" selected>M5</option></select>
       <span class="chart-status" id="chartStatus">Loading…</span>
     </div>
   </div>
@@ -55,7 +55,7 @@ button,select,input{font:inherit}button{cursor:pointer}.app{max-width:1500px;mar
 <div class="pager"><span id="pagInfo">—</span><div class="page-buttons"><button id="prevBtn" disabled>← Prev</button><button id="nextBtn" disabled>Next →</button></div></div>
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
-<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/lightweight-charts@4.1.3/dist/lightweight-charts.standalone.production.js"></script>
 <script>
 const state={offset:0,total:0,limit:50,live:false,timer:null,rows:[]};
 const $=id=>document.getElementById(id),esc=v=>String(v??"—").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])),fmt=n=>Number(n||0).toLocaleString("id-ID"),time=v=>v?new Date(v).toLocaleString("id-ID",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).replace(",",""):"—",search=()=>$("fSearch").value.trim().toLowerCase();
@@ -83,7 +83,6 @@ const series=chart.addCandlestickSeries({
   upColor:"#25d98a",downColor:"#ff5d6c",borderVisible:false,
   wickUpColor:"#25d98a",wickDownColor:"#ff5d6c",
 });
-new ResizeObserver(()=>chart.applyOptions({width:container.clientWidth}))?.observe?.(container);
 
 async function loadChart(){
   const symbol=$("chartSymbol").value,tf=$("chartTf").value;
@@ -163,7 +162,7 @@ btn.addEventListener("click",async()=>{
     if(!run){toast("Belum ada hasil setelah 6 menit. Cek tab Actions di GitHub.","warn");return}
     if(run.conclusion==="success")toast("Run selesai ✓ data diperbarui","ok");
     else toast("Run selesai: "+(run.conclusion||"unknown")+". Cek tab Actions di GitHub.","err");
-    if(typeof load=="function")load(typeof state==="object"?state.offset:0);
+    if(typeof load==="function")load(typeof state==="object"?state.offset:0);
   }catch(e){toast("Gagal: "+e.message,"err")}
   finally{busy=false;btn.disabled=false;btn.classList.remove("busy");label("Run now")}
 });
