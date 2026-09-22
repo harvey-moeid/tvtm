@@ -13,12 +13,12 @@
     {
       "id": "GOLDUSDT",
       "symbol": "GOLDUSDT",
-      "market": "provider_defined",
+      "market": "futures",
       "exchange": "okx",
-      "exchange_symbol": "PAXG-USDT",
+      "exchange_symbol": "XAU-USDT-SWAP",
       "enabled": true,
       "timeframes": ["5m", "15m"],
-      "note": "PAXG-USDT (PAX Gold/USDT, OKX spot) dipakai sebagai proxy GOLDUSDT karena melacak harga emas 1:1 per troy ounce. OKX tidak punya perpetual emas (XAUT/PAXG swap tidak ada) dan spot PAXG di OKX likuiditasnya tipis: banyak candle 5m tanpa transaksi (datar, volume 0). WAJIB divalidasi/diganti sebelum production sesuai AC-14 PRD v4."
+      "note": "Sumber GOLDUSDT menggunakan OKX XAU-USDT-SWAP. OKX menyatakan perpetual XAUUSDT merujuk langsung ke harga spot gold sebagai underlying/external price source, sehingga lebih sesuai untuk merepresentasikan GOLDUSD/XAUUSD daripada proxy PAXG-USDT. Internal symbol tetap GOLDUSDT agar kompatibel dengan TVTM."
     }
   ]
 }
