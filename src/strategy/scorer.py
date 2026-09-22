@@ -1,7 +1,7 @@
 """
 Scorer - menggabungkan 5 komponen konfluensi ICT jadi satu skor sinyal:
 
-  1. Market Structure  (bobot 2.5) - trend M15 searah arah sinyal
+  1. Market Structure  (bobot 2.5) - ada BOS/CHoCH M15 BARU (event candle ini) searah sinyal
   2. Liquidity          (bobot 1.5) - ada liquidity sweep searah sinyal
   3. FVG                (bobot 2.0) - ada Fair Value Gap belum-mitigated searah sinyal
   4. Order Block        (bobot 2.5) - ada Order Block belum-mitigated searah sinyal
@@ -21,6 +21,25 @@ seperti parameter ICT lain di repo ini (lihat README bagian "Parameter baru").
 Fungsi ini murni (tidak I/O), menerima hasil semua detektor yang sudah
 dihitung caller (trigger_m5.py) dan mengembalikan ScoreResult siap ditempel
 ke Signal.
+
+CATATAN PERBAIKAN - komponen "Market Structure":
+Sebelumnya komponen ini mengecek `m15_structure.trend` searah `direction`
+semata. Tapi di trigger_m5.py, `direction` (BUY/SELL) hanya pernah di-set
+SETELAH m15_bias (BULLISH/BEARISH) sudah dicek cocok - dan m15_bias sendiri
+diturunkan langsung dari m15_structure.trend di bias_m15.py (Bias.BULLISH
+hanya kalau trend==UP, Bias.BEARISH hanya kalau trend==DOWN). Akibatnya
+kombinasi "direction BUY tapi trend DOWN" MUSTAHIL terjadi di jalur produksi,
+sehingga cek berbasis trend itu SELALU valid=True - menyumbang 2.5/10 poin
+(25%) gratis yang tidak pernah benar-benar menyaring sinyal apa pun (lantai
+skor tersembunyi).
+
+Sekarang komponen ini mengecek `m15_structure.event`: apakah candle M15
+terakhir BARU SAJA membentuk BOS/CHoCH searah sinyal (bukan cuma trend lama
+yang sudah berjalan tanpa breakout baru). `event` bisa NONE walau trend
+sudah UP/DOWN sejak beberapa candle M15 lalu, jadi ini benar-benar
+diskriminatif: sinyal yang muncul persis di momen breakout struktural M15
+mendapat skor lebih tinggi daripada sinyal retest biasa di trend yang sudah
+lama berjalan tanpa event baru.
 """
 
 from __future__ import annotations
@@ -34,8 +53,8 @@ from src.models import (
     OrderBlock,
     ScoreComponent,
     ScoreResult,
+    StructureEvent,
     StructureResult,
-    StructureTrend,
     VolumeProfileResult,
 )
 
@@ -44,6 +63,17 @@ _LIQUIDITY_WEIGHT = 1.5
 _FVG_WEIGHT = 2.0
 _ORDER_BLOCK_WEIGHT = 2.5
 _VOLUME_PROFILE_WEIGHT = 1.5
+
+_BULLISH_STRUCTURE_EVENTS = (StructureEvent.BOS_BULLISH, StructureEvent.CHOCH_BULLISH)
+_BEARISH_STRUCTURE_EVENTS = (StructureEvent.BOS_BEARISH, StructureEvent.CHOCH_BEARISH)
+
+_STRUCTURE_EVENT_LABELS = {
+    StructureEvent.BOS_BULLISH: "BOS Bullish",
+    StructureEvent.CHOCH_BULLISH: "CHoCH Bullish",
+    StructureEvent.BOS_BEARISH: "BOS Bearish",
+    StructureEvent.CHOCH_BEARISH: "CHoCH Bearish",
+    StructureEvent.NONE: "No Fresh Break",
+}
 
 
 def compute_score(
@@ -57,19 +87,17 @@ def compute_score(
     is_buy = direction == Direction.BUY
     components: List[ScoreComponent] = []
 
-    # 1. Market Structure
-    trend = m15_structure.trend
-    structure_ok = (trend == StructureTrend.UP) if is_buy else (trend == StructureTrend.DOWN)
-    trend_label = {
-        StructureTrend.UP: "Uptrend",
-        StructureTrend.DOWN: "Downtrend",
-        StructureTrend.RANGE: "Range",
-    }[trend]
+    # 1. Market Structure - lihat catatan panjang di docstring modul ini:
+    # dicek dari BOS/CHoCH BARU (event candle M15 ini), bukan dari trend saja
+    # (yang selalu match arah sinyal by construction dan tidak diskriminatif).
+    event = m15_structure.event
+    matching_events = _BULLISH_STRUCTURE_EVENTS if is_buy else _BEARISH_STRUCTURE_EVENTS
+    structure_ok = event in matching_events
     components.append(
         ScoreComponent(
             label="Market Structure",
             valid=structure_ok,
-            detail=trend_label,
+            detail=_STRUCTURE_EVENT_LABELS.get(event, "No Fresh Break"),
             weight=_MARKET_STRUCTURE_WEIGHT,
         )
     )
