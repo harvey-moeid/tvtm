@@ -18,6 +18,13 @@ Urutan evaluasi (upgrade dari versi awal ditandai [BARU]):
    langkah 1-5 langsung dikirim apa adanya.
 7. Belum kena cooldown_key (permanen per setup struktural, PRD 14) DAN
    [BARU] belum kena rate-limit waktu (cooldownMinutes, kini benar-benar aktif).
+8. [BARU - ICT full suite] Hitung skor konfluensi (Market Structure, Liquidity
+   Sweep, FVG, Order Block, Volume Profile - semua dihitung dari m5_candles)
+   lewat scorer.compute_score(). Kalau requireRiskManagement/pattern sudah
+   lolos tapi score di bawah `minScoreToNotify` (default 0.0 = tidak pernah
+   memfilter, backward compatible), sinyal DIBATALKAN juga - konsisten
+   dengan filosofi langkah 6 (price action + risk valid saja tidak cukup
+   kalau confluence ICT lain menentang arah sinyal).
 """
 
 from __future__ import annotations
@@ -38,9 +45,17 @@ from src.patterns.engulfing import detect_bearish_engulfing, detect_bullish_engu
 from src.patterns.pin_bar import detect_bearish_pin_bar, detect_bullish_pin_bar
 from src.storage.d1_client import D1Client
 from src.strategy.cooldown import build_cooldown_key, is_in_cooldown, is_rate_limited
+from src.strategy.liquidity import detect_liquidity_sweep
 from src.strategy.risk import compute_risk_levels
+from src.strategy.scorer import compute_score
 from src.strategy.volume_filter import passes_volume_filter
+from src.strategy.volume_profile import compute_volume_profile
 from src.strategy.zones import build_active_zone, compute_zone_tolerance_pct
+from src.structure.bos_choch import detect_structure_event
+from src.structure.fvg import detect_fvgs, mark_mitigated as mark_fvgs_mitigated
+from src.structure.order_block import detect_order_block, mark_mitigated as mark_ob_mitigated
+from src.structure.market_structure import classify_structure
+from src.structure.swings import detect_swings
 
 
 def evaluate_m5_trigger(
@@ -130,6 +145,49 @@ def evaluate_m5_trigger(
     if is_rate_limited(d1, symbol, "5m", direction.value, cfg.get("cooldownMinutes", 0)):
         return None
 
+    # --- ICT full suite: hitung Liquidity / FVG / Order Block / Volume
+    # Profile dari m5_candles (timeframe yang sama dengan chart di dashboard
+    # referensi), lalu gabungkan jadi score/confidence via scorer.py.
+    m5_swings = detect_swings(m5_candles, cfg.get("swingLookback", 2))
+    m5_structure_result = classify_structure(m5_swings, cfg.get("minStructureConfirmation", 1))
+    m5_event_result = detect_structure_event(
+        m5_candles,
+        m5_swings,
+        prior_trend=m5_structure_result.trend,
+        min_confirmation=cfg.get("minStructureConfirmation", 1),
+        break_buffer_pct=cfg.get("structureBreakBufferPct", 0.0),
+    )
+
+    liquidity_sweep = detect_liquidity_sweep(
+        m5_candles, m5_swings, cfg.get("liquidityEqualTolerancePct", 0.05)
+    )
+
+    fvgs = detect_fvgs(m5_candles, cfg.get("fvgMinGapPct", 0.0))
+    fvgs = mark_fvgs_mitigated(fvgs, m5_candles)
+
+    order_block = detect_order_block(
+        m5_candles,
+        m5_event_result.event,
+        m5_event_result.event_candle_time,
+        cfg.get("obLookback", 10),
+    )
+    order_block = mark_ob_mitigated(order_block, m5_candles)
+
+    volume_profile = compute_volume_profile(m5_candles, cfg.get("volumeProfileBucketCount", 24))
+
+    score_result = compute_score(
+        direction=direction,
+        m15_structure=m15_structure,
+        liquidity_sweep=liquidity_sweep,
+        fvgs=fvgs,
+        order_block=order_block,
+        volume_profile=volume_profile,
+    )
+
+    min_score = cfg.get("minScoreToNotify", 0.0)
+    if score_result.score < min_score:
+        return None
+
     signal_key = f"{symbol}:{market}:5m:{curr.candle_time_iso}:{direction.value}"
 
     return Signal(
@@ -155,4 +213,7 @@ def evaluate_m5_trigger(
         risk_reward_2=risk.risk_reward_2 if risk else None,
         atr=m5_atr,
         zone_tolerance_pct_used=zone.tolerance_pct,
+        confidence_pct=score_result.confidence_pct,
+        score=score_result.score,
+        checklist=score_result.components,
     )
