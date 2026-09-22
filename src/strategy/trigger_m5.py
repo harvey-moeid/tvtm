@@ -171,7 +171,11 @@ def evaluate_m5_trigger(
         m5_event_result.event_candle_time,
         cfg.get("obLookback", 10),
     )
-    order_block = mark_ob_mitigated(order_block, m5_candles)
+    order_block = mark_ob_mitigated(
+        order_block,
+        m5_candles,
+        event_candle_time=m5_event_result.event_candle_time,
+    )
 
     volume_profile = compute_volume_profile(m5_candles, cfg.get("volumeProfileBucketCount", 24))
 

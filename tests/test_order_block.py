@@ -72,3 +72,33 @@ def test_mark_mitigated_flags_touch():
 
 def test_mark_mitigated_none_when_ob_is_none():
     assert mark_mitigated(None, []) is None
+
+def test_mark_mitigated_ignores_event_displacement_candle():
+    ob = OrderBlock(
+        direction="bullish",
+        top=101,
+        bottom=100,
+        formed_at_candle_time=1000,
+        structure_event=StructureEvent.BOS_BULLISH,
+    )
+    event = make_candle(0, 101, 102, 100.5, 101.5)
+    result = mark_mitigated(ob, [event], event_candle_time=event.open_time)
+    assert result.mitigated is False
+
+
+def test_mark_mitigated_detects_retest_after_event():
+    ob = OrderBlock(
+        direction="bullish",
+        top=101,
+        bottom=100,
+        formed_at_candle_time=1000,
+        structure_event=StructureEvent.BOS_BULLISH,
+    )
+    event = make_candle(0, 101, 102, 100.5, 101.5)
+    retest = make_candle(1, 105, 105, 100.5, 104)
+    result = mark_mitigated(
+        ob,
+        [event, retest],
+        event_candle_time=event.open_time,
+    )
+    assert result.mitigated is True

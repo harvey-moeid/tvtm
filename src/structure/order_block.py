@@ -1,5 +1,4 @@
-"""
-Order Block (OB) detector.
+"""Order Block (OB) detector.
 
 Definisi yang dipakai di sini (varian price-action paling umum, bukan
 volume-profile-based OB): candle BERLAWANAN arah TERAKHIR sebelum sebuah
@@ -40,7 +39,10 @@ def detect_order_block(
     if event_candle_time is None:
         return None
 
-    event_index = next((i for i, c in enumerate(candles) if c.open_time == event_candle_time), None)
+    event_index = next(
+        (i for i, c in enumerate(candles) if c.open_time == event_candle_time),
+        None,
+    )
     if event_index is None:
         return None
 
@@ -51,9 +53,8 @@ def detect_order_block(
 
     is_bullish_event = structure_event in _BULLISH_EVENTS
 
-    # cari dari candle paling dekat ke event mundur ke belakang: candle
-    # BERLAWANAN arah displacement pertama yang ditemukan (paling dekat
-    # dengan displacement) adalah OB-nya.
+    # Cari dari candle paling dekat ke event mundur ke belakang: candle
+    # berlawanan arah displacement pertama yang ditemukan adalah OB-nya.
     for candle in reversed(window):
         if is_bullish_event and candle.is_bearish:
             return OrderBlock(
@@ -75,17 +76,38 @@ def detect_order_block(
     return None
 
 
-def mark_mitigated(ob: Optional[OrderBlock], candles_after: List[Candle]) -> Optional[OrderBlock]:
-    """Sama pola dengan fvg.mark_mitigated: OB dianggap mitigated begitu
-    ada candle setelah displacement yang retest kembali ke zonanya."""
+def mark_mitigated(
+    ob: Optional[OrderBlock],
+    candles_after: List[Candle],
+    event_candle_time: Optional[int] = None,
+) -> Optional[OrderBlock]:
+    """Tandai OB sebagai mitigated setelah displacement/event candle.
+
+    Candle event yang menciptakan displacement tidak dihitung sebagai retest.
+    Ini mencegah OB langsung dianggap mitigated hanya karena wick displacement
+    menyentuh kembali area candle pembentuk OB.
+    """
 
     if ob is None:
         return None
-    touched = any(
-        c.open_time > ob.formed_at_candle_time and ob.is_touched_by(c) for c in candles_after
-    )
+
+    if event_candle_time is not None:
+        candidates = [
+            c for c in candles_after if c.open_time > event_candle_time
+        ]
+    else:
+        # Backward-compatible fallback untuk caller lama: tanpa event time,
+        # semua candle setelah OB dianggap kandidat mitigasi.
+        candidates = [
+            c
+            for c in candles_after
+            if c.open_time > ob.formed_at_candle_time
+        ]
+
+    touched = any(ob.is_touched_by(c) for c in candidates)
     if not touched:
         return ob
+
     return OrderBlock(
         direction=ob.direction,
         top=ob.top,
