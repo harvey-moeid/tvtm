@@ -97,7 +97,7 @@ def send_discord_trade_closed(webhook_url, trade):
         "username": "TV Alert Relay",
         "embeds": [
             {
-                "title": f"{direction_icon} Trade Closed - {trade["symbol"]}",
+                "title": f"{direction_icon} Trade Closed - {trade['symbol']}",
                 "fields": [
                     {
                         "name": "Direction",
