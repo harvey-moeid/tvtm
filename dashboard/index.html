@@ -21,6 +21,15 @@ button,select,input{font:inherit}button{cursor:pointer}.app{max-width:1500px;mar
 .run{height:36px;padding:0 13px;display:flex;align-items:center;gap:8px;border:1px solid rgba(91,140,255,.4);background:rgba(91,140,255,.09);color:var(--blue);border-radius:9px;font-weight:600}.run svg{width:12px;height:12px;fill:currentColor}.run:hover:not(:disabled){background:rgba(91,140,255,.16)}.run:disabled{opacity:.75;cursor:progress}.run.busy svg{animation:runpulse 1s infinite}@keyframes runpulse{50%{opacity:.25}}
 .toast{position:fixed;left:50%;bottom:24px;transform:translate(-50%,12px);max-width:min(92vw,460px);padding:11px 16px;background:var(--panel2);border:1px solid var(--line);border-radius:10px;color:var(--text);font-size:12px;box-shadow:var(--shadow);opacity:0;pointer-events:none;transition:.18s;z-index:50}.toast.show{opacity:1;transform:translate(-50%,0)}.toast.ok{border-color:rgba(37,217,138,.4);color:var(--green)}.toast.warn{border-color:rgba(245,189,85,.4);color:var(--amber)}.toast.err{border-color:rgba(255,93,108,.4);color:var(--red)}
 @media(max-width:620px){.run{padding:0 11px}.run span{display:none}}
+.chart-panel{margin:20px 0 12px;padding:14px;border:1px solid var(--line);border-radius:14px;background:rgba(9,14,21,.72);box-shadow:var(--shadow)}
+.chart-head{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap;margin-bottom:10px}
+.chart-title{font-size:13px;font-weight:700;color:#dfe9f8;letter-spacing:-.2px}
+.chart-controls{display:flex;gap:8px;align-items:center}
+.chart-controls select{height:34px;min-width:110px}
+.chart-legend{display:flex;gap:16px;margin-top:8px;font-size:11px;color:var(--muted)}
+.chart-status{font:11px ui-monospace,monospace;color:var(--dim)}
+#chartContainer{height:420px;border-radius:10px;overflow:hidden}
+@media(max-width:620px){#chartContainer{height:300px}.chart-controls select{min-width:0;flex:1}}
 </style>
 </head>
 <body>
@@ -28,12 +37,25 @@ button,select,input{font:inherit}button{cursor:pointer}.app{max-width:1500px;mar
 <header class="topbar"><div class="brand"><div class="logo"><svg viewBox="0 0 24 24" fill="none"><path d="M4 16.5 8.2 12l3 2.8L19.5 7" stroke="#5b8cff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/><path d="M16 7h3.5v3.5" stroke="#53d8ff" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg></div><div><h1>TVTM</h1><p>Signal Intelligence Dashboard</p></div></div><div class="top-actions"><button class="run" id="runBtn" aria-label="Run now" title="Jalankan workflow Check Trading Signal sekarang"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13a1 1 0 0 0 1.5.86l10.5-6.5a1 1 0 0 0 0-1.72L9.5 4.64A1 1 0 0 0 8 5.5z"/></svg><span id="runText">Run now</span></button><button class="live" id="liveBtn"><i class="dot"></i><span id="liveText">Live refresh</span></button><button class="refresh" id="refreshBtn" title="Refresh">↻</button></div></header>
 <section class="hero"><div><div class="eyebrow">Trading signal monitor</div><h2>Signal Intelligence</h2><p>Real-time view of strategy output, market bias and delivery status.</p></div><div class="updated" id="updated">Waiting for data…</div></section>
 <section class="cards"><article class="card"><div class="card-label">Total signals</div><div class="card-value" id="sTotal">—</div><div class="card-sub" id="sLatest">No latest signal</div></article><article class="card"><div class="card-label">Direction</div><div class="split"><span class="mini buy" id="sBuy">BUY —</span><span class="mini sell" id="sSell">SELL —</span></div><div class="card-sub">Filtered result set</div></article><article class="card"><div class="card-label">Delivery</div><div class="split"><span class="mini buy" id="sSent">Sent —</span><span class="mini warn" id="sPending">Pending —</span></div><div class="card-sub">Notification pipeline</div></article><article class="card"><div class="card-label">Current view</div><div class="card-value" id="sView">—</div><div class="card-sub">Rows in this page</div></article></section>
+<section class="chart-panel">
+  <div class="chart-head">
+    <div class="chart-title">Price Chart</div>
+    <div class="chart-controls">
+      <select id="chartSymbol"><option value="BTCUSDT">BTCUSDT</option><option value="GOLDUSDT">GOLDUSDT</option></select>
+      <select id="chartTf"><option value="15m" selected>M15</option><option value="5m">M5</option></select>
+      <span class="chart-status" id="chartStatus">Loading…</span>
+    </div>
+  </div>
+  <div id="chartContainer"></div>
+  <div class="chart-legend"><span class="mini buy">▲ BUY signal</span><span class="mini sell">▼ SELL signal</span></div>
+</section>
 <section class="toolbar"><input class="search" id="fSearch" placeholder="Cari symbol, pattern, zone, event…" autocomplete="off"><select id="fSymbol"><option value="">All symbols</option></select><select id="fDirection"><option value="">All directions</option><option value="BUY">BUY</option><option value="SELL">SELL</option></select><select id="fStatus"><option value="">All status</option><option value="1">Sent</option><option value="0">Pending</option></select><select id="fLimit"><option value="25">25 rows</option><option value="50" selected>50 rows</option><option value="100">100 rows</option></select><button class="clear" id="clearBtn">Reset</button></section>
 <div class="meta"><span id="resultMeta">—</span><span>Newest first</span></div>
 <section class="table-shell"><div class="table-scroll"><table><thead><tr><th>Time</th><th>Symbol</th><th>Market</th><th>TF</th><th>Direction</th><th>M15 Bias</th><th>Pattern</th><th>Zone</th><th>Price</th><th>Structure</th><th>Delivery</th></tr></thead><tbody id="tbody"></tbody></table></div></section>
 <div class="pager"><span id="pagInfo">—</span><div class="page-buttons"><button id="prevBtn" disabled>← Prev</button><button id="nextBtn" disabled>Next →</button></div></div>
 </main>
 <div class="toast" id="toast" role="status" aria-live="polite"></div>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/lightweight-charts/4.1.3/lightweight-charts.standalone.production.js"></script>
 <script>
 const state={offset:0,total:0,limit:50,live:false,timer:null,rows:[]};
 const $=id=>document.getElementById(id),esc=v=>String(v??"—").replace(/[&<>"']/g,m=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#039;"}[m])),fmt=n=>Number(n||0).toLocaleString("id-ID"),time=v=>v?new Date(v).toLocaleString("id-ID",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).replace(",",""):"—",search=()=>$("fSearch").value.trim().toLowerCase();
@@ -43,7 +65,63 @@ function render(rows){const q=search(),filtered=q?rows.filter(r=>[r.symbol,r.pat
 $("tbody").innerHTML=filtered.map(r=>{const buy=r.direction==="BUY",bias=String(r.m15_bias||"NEUTRAL").toUpperCase(),bc=bias==="BULLISH"?"bull":bias==="BEARISH"?"bear":"neutral";return `<tr><td class="mono muted">${esc(time(r.candle_time))}</td><td><span class="symbol">${esc(r.symbol)}</span></td><td><span class="market"><i></i>${esc(r.market)}</span></td><td class="mono muted">${esc(r.timeframe)}</td><td><span class="badge ${buy?"b-buy":"b-sell"}">${buy?"▲ BUY":"▼ SELL"}</span></td><td><span class="bias ${bc}">${esc(bias)}</span></td><td><span class="chip" title="${esc(r.pattern)}">${esc(String(r.pattern||"—").replaceAll("_"," "))}</span></td><td class="mono muted">${esc(r.zone_type)} @ ${Number(r.zone_level||0).toFixed(4)}</td><td class="mono">${Number(r.price||0).toFixed(4)}</td><td class="mono muted">${esc(r.structure_event)}</td><td><span class="status ${r.notified?"ok":"pending"}"><i></i>${r.notified?"Sent":"Pending"}</span></td></tr>`}).join("")}
 function renderStats(data){const st=data.stats||{};$("sTotal").textContent=fmt(st.total);$("sBuy").textContent="BUY "+fmt(st.buys);$("sSell").textContent="SELL "+fmt(st.sells);$("sSent").textContent="Sent "+fmt(st.notified);$("sPending").textContent="Pending "+fmt(st.pending);$("sView").textContent=fmt(state.rows.length);$("sLatest").textContent=st.latest?"Latest "+time(st.latest):"No latest signal";$("updated").textContent="Updated "+new Date().toLocaleTimeString("id-ID",{hour:"2-digit",minute:"2-digit",second:"2-digit"});const from=st.total?state.offset+1:0,to=Math.min(state.offset+state.limit,st.total);$("resultMeta").innerHTML="<strong>"+fmt(st.total)+" signals</strong> · "+fmt(from)+"–"+fmt(to);$("pagInfo").textContent=from+"–"+to+" of "+fmt(st.total);$("prevBtn").disabled=state.offset<=0;$("nextBtn").disabled=state.offset+state.limit>=st.total}
 async function load(offset=state.offset){skeleton();try{const data=await fetchData(offset);state.total=Number(data.total||0);const sel=$("fSymbol"),old=sel.value;if(sel.options.length===1&&(data.symbols||[]).length)(data.symbols||[]).forEach(v=>{const o=document.createElement("option");o.value=v;o.textContent=v;sel.appendChild(o)});sel.value=old;render(data.signals||[]);renderStats(data)}catch(e){$("tbody").innerHTML="<tr><td colspan='11'><div class='state'><b>Unable to load signals</b><span>"+esc(e.message)+"</span></div></td></tr>";$("updated").textContent="Connection error"}}
-["fSymbol","fDirection","fStatus","fLimit"].forEach(id=>$(id).addEventListener("change",()=>load(0)));$("fSearch").addEventListener("input",()=>{render(state.rows);$("sView").textContent=fmt(state.rows.length)});$("clearBtn").onclick=()=>{$("fSearch").value="";$("fSymbol").value="";$("fDirection").value="";$("fStatus").value="";$("fLimit").value="50";load(0)};$("refreshBtn").onclick=()=>load(state.offset);$("prevBtn").onclick=()=>load(Math.max(0,state.offset-state.limit));$("nextBtn").onclick=()=>load(state.offset+state.limit);$("liveBtn").onclick=()=>{state.live=!state.live;$("liveBtn").classList.toggle("on",state.live);$("liveText").textContent=state.live?"Live · 30s":"Live refresh";clearInterval(state.timer);if(state.live)state.timer=setInterval(()=>load(state.offset),30000)};load(0);
+["fSymbol","fDirection","fStatus","fLimit"].forEach(id=>$(id).addEventListener("change",()=>load(0)));$("fSearch").addEventListener("input",()=>{render(state.rows);$("sView").textContent=fmt(state.rows.length)});$("clearBtn").onclick=()=>{$("fSearch").value="";$("fSymbol").value="";$("fDirection").value="";$("fStatus").value="";$("fLimit").value="50";load(0)};$("refreshBtn").onclick=()=>{load(state.offset);if(typeof loadChart==="function")loadChart()};$("prevBtn").onclick=()=>load(Math.max(0,state.offset-state.limit));$("nextBtn").onclick=()=>load(state.offset+state.limit);$("liveBtn").onclick=()=>{state.live=!state.live;$("liveBtn").classList.toggle("on",state.live);$("liveText").textContent=state.live?"Live · 30s":"Live refresh";clearInterval(state.timer);if(state.live)state.timer=setInterval(()=>{load(state.offset);if(typeof loadChart==="function")loadChart()},30000)};load(0);
+</script>
+<script>
+(()=>{
+if(typeof LightweightCharts==="undefined"){$("chartStatus").textContent="Chart library gagal dimuat";return}
+const container=$("chartContainer");
+const chart=LightweightCharts.createChart(container,{
+  layout:{background:{color:"transparent"},textColor:"#a8b5c8",fontFamily:"ui-monospace,monospace"},
+  grid:{vertLines:{color:"#1b2737"},horzLines:{color:"#1b2737"}},
+  rightPriceScale:{borderColor:"#1b2737"},
+  timeScale:{borderColor:"#1b2737",timeVisible:true,secondsVisible:false},
+  crosshair:{mode:LightweightCharts.CrosshairMode.Normal},
+  autoSize:true,
+});
+const series=chart.addCandlestickSeries({
+  upColor:"#25d98a",downColor:"#ff5d6c",borderVisible:false,
+  wickUpColor:"#25d98a",wickDownColor:"#ff5d6c",
+});
+new ResizeObserver(()=>chart.applyOptions({width:container.clientWidth}))?.observe?.(container);
+
+async function loadChart(){
+  const symbol=$("chartSymbol").value,tf=$("chartTf").value;
+  $("chartStatus").textContent="Loading…";
+  try{
+    const cRes=await fetch(`/api/candles?symbol=${symbol}&timeframe=${tf}&limit=300`);
+    const cData=await cRes.json();
+    if(!cRes.ok||cData.error)throw new Error(cData.error||("HTTP "+cRes.status));
+    const candles=cData.candles||[];
+    series.setData(candles);
+
+    const sRes=await fetch(`/api/signals?symbol=${symbol}&limit=100`);
+    const sData=await sRes.json();
+    const signals=(sData.signals||[]).filter(r=>r.timeframe===tf);
+    const markers=signals.map(r=>{
+      const t=Math.floor(new Date(r.candle_time).getTime()/1000);
+      const buy=r.direction==="BUY";
+      return{
+        time:t,
+        position:buy?"belowBar":"aboveBar",
+        color:buy?"#25d98a":"#ff5d6c",
+        shape:buy?"arrowUp":"arrowDown",
+        text:String(r.pattern||r.direction||"").replaceAll("_"," "),
+      };
+    }).sort((a,b)=>a.time-b.time);
+    series.setMarkers(markers);
+
+    chart.timeScale().fitContent();
+    $("chartStatus").textContent=candles.length?`${candles.length} candle · ${markers.length} sinyal`:"Tidak ada data candle";
+  }catch(e){
+    $("chartStatus").textContent="Gagal memuat chart: "+e.message;
+  }
+}
+window.loadChart=loadChart;
+$("chartSymbol").addEventListener("change",loadChart);
+$("chartTf").addEventListener("change",loadChart);
+loadChart();
+})();
 </script>
 <script>
 (()=>{
@@ -63,8 +141,8 @@ async function watch(beforeId){
     const res=await api("GET").catch(()=>null);
     if(!res||!res.ok)continue;
     const run=(res.data.runs||[]).find(r=>r.id>beforeId);
-    if(!run){label("Menunggu GitHub\u2026");continue}
-    if(run.status!=="completed"){label(run.status==="in_progress"?"Berjalan\u2026":"Antre\u2026");continue}
+    if(!run){label("Menunggu GitHub…");continue}
+    if(run.status!=="completed"){label(run.status==="in_progress"?"Berjalan…":"Antre…");continue}
     return run;
   }
   return null;
@@ -73,19 +151,19 @@ btn.addEventListener("click",async()=>{
   if(busy)return;
   let key=getKey();
   if(!key){key=(prompt("Masukkan run key untuk menjalankan workflow:")||"").trim();if(!key)return}
-  busy=true;btn.disabled=true;btn.classList.add("busy");label("Memicu\u2026");
+  busy=true;btn.disabled=true;btn.classList.add("busy");label("Memicu…");
   try{
     const {status,data}=await api("POST",key);
     if(status===401){setKey("");toast("Run key salah.","err");return}
     if(status===409){toast("Run manual sebelumnya masih berjalan.","warn");return}
     if(status<200||status>=300){toast(data.message||("Gagal memicu workflow (HTTP "+status+")."),"err");return}
     setKey(key);
-    toast("Workflow dipicu. Menunggu hasil\u2026");
+    toast("Workflow dipicu. Menunggu hasil…");
     const run=await watch(data.before_id||0);
     if(!run){toast("Belum ada hasil setelah 6 menit. Cek tab Actions di GitHub.","warn");return}
-    if(run.conclusion==="success")toast("Run selesai \u2713 data diperbarui","ok");
+    if(run.conclusion==="success")toast("Run selesai ✓ data diperbarui","ok");
     else toast("Run selesai: "+(run.conclusion||"unknown")+". Cek tab Actions di GitHub.","err");
-    if(typeof load==="function")load(typeof state==="object"?state.offset:0);
+    if(typeof load=="function")load(typeof state==="object"?state.offset:0);
   }catch(e){toast("Gagal: "+e.message,"err")}
   finally{busy=false;btn.disabled=false;btn.classList.remove("busy");label("Run now")}
 });
