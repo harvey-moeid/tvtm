@@ -15,10 +15,16 @@ export async function onRequest(context) {
   const timeframe = url.searchParams.get("timeframe") || "15m";
   const limit = Math.min(Math.max(parseInt(url.searchParams.get("limit") || "300", 10) || 300, 10), 300);
 
-  // Pemetaan symbol internal -> instId OKX (samakan dengan src/config/symbols.json)
+  // Pemetaan symbol internal -> instId OKX. HARUS selalu identik dengan
+  // src/config/symbols.json (exchange_symbol) - dashboard menampilkan
+  // candle yang dipakai ENGINE untuk generate sinyal. Kalau beda instrumen,
+  // level zona/SL/TP yang dikirim ke Discord tidak akan match secara
+  // visual dengan chart di sini (pernah terjadi utk GOLDUSDT: engine sudah
+  // pindah ke XAU-USDT-SWAP tapi chart masih PAXG-USDT spot - lihat commit
+  // fix ini).
   const INSTRUMENTS = {
     BTCUSDT: "BTC-USDT-SWAP",
-    GOLDUSDT: "PAXG-USDT",
+    GOLDUSDT: "XAU-USDT-SWAP",
   };
   const instId = INSTRUMENTS[symbol];
   if (!instId) {
@@ -50,7 +56,12 @@ export async function onRequest(context) {
       );
     }
 
-    // OKX mengembalikan data terbaru dulu: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm]
+    // OKX mengembalikan data terbaru dulu: [ts, o, h, l, c, vol, volCcy, volCcyQuote, confirm].
+    // Satuan `vol` beda per jenis instrumen (sama seperti src/market/exchange_adapter.py):
+    // SPOT -> vol sudah dalam koin dasar; SWAP -> vol dalam jumlah KONTRAK,
+    // sedangkan volCcy dalam koin dasar. Pakai volCcy utk instrumen -SWAP supaya
+    // angka volume di chart konsisten dengan koin dasar, bukan jumlah kontrak.
+    const volIdx = instId.endsWith("-SWAP") ? 6 : 5;
     const candles = (body.data || [])
       .map((row) => ({
         time: Math.floor(Number(row[0]) / 1000),
@@ -58,7 +69,7 @@ export async function onRequest(context) {
         high: Number(row[2]),
         low: Number(row[3]),
         close: Number(row[4]),
-        volume: Number(row[5]),
+        volume: Number(row[volIdx]),
       }))
       .reverse();
 
