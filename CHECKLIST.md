@@ -7,22 +7,20 @@ FVG, Order Block, Volume Profile — dan dashboard tampil sebagai card-based UI
 
 Status: `[ ]` belum, `[x]` selesai, `[~]` sedang dikerjakan.
 
-## 1. Engine — deteksi konsep ICT tambahan
+## 1. Engine — deteksi konsep ICT tambahan  ✅ SELESAI
 
 - [x] `src/structure/fvg.py` — detektor Fair Value Gap (bullish & bearish, 3-candle imbalance) + mitigasi
 - [x] `src/structure/order_block.py` — detektor Order Block (bullish & bearish, candle terakhir sebelum impulsive move) + mitigasi
-- [ ] `src/strategy/liquidity.py` — deteksi liquidity sweep (equal highs/lows, stop hunt wick)
-- [ ] `src/strategy/volume_profile.py` — hitung volume per price-level (bucket) dari candle window
-- [x] `src/models.py` — tambah dataclass `FairValueGap`, `OrderBlock`, `LiquiditySweep`, `VolumeProfileLevel`, `VolumeProfileResult`, `ScoreComponent`, `ScoreResult`; `Signal` ditambah field `confidence_pct`/`score`/`checklist`
-- [ ] `src/config/strategy.json` — parameter baru: `fvgMinGapPct`, `obLookback`, `liquidityEqualTolerancePct`, `volumeProfileBucketCount`
+- [x] `src/strategy/liquidity.py` — deteksi liquidity sweep (equal highs/lows, stop hunt wick)
+- [x] `src/strategy/volume_profile.py` — volume per price-level (bucket), POC, buy/sell imbalance
+- [x] `src/models.py` — dataclass `FairValueGap`, `OrderBlock`, `LiquiditySweep`, `VolumeProfileLevel`, `VolumeProfileResult`, `ScoreComponent`, `ScoreResult`; `Signal` + field `confidence_pct`/`score`/`checklist`
+- [x] `src/config/strategy.json` — parameter baru: `fvgMinGapPct`, `obLookback`, `liquidityEqualTolerancePct`, `volumeProfileBucketCount`, `minScoreToNotify`
 
-## 2. Engine — scoring & confidence
+## 2. Engine — scoring & confidence  ✅ SELESAI
 
-- [ ] `src/strategy/scorer.py` — gabungkan 5 komponen (Market Structure, Liquidity Sweep, FVG, Order Block, Volume Profile) jadi:
-  - `confidence_pct` (0–100)
-  - `score` (0–10)
-  - checklist per-komponen (valid/invalid + label, mis. "Bullish OB", "Buy Imbalance")
-- [ ] Sinyal yang score-nya di bawah threshold (`minScoreToNotify`) tidak dikirim ke Discord
+- [x] `src/strategy/scorer.py` — gabungkan 5 komponen (Market Structure 2.5, Order Block 2.5, FVG 2.0, Liquidity 1.5, Volume Profile 1.5 — total bobot 10) jadi `score` (0–10), `confidence_pct` (0–100), dan checklist per-komponen
+- [x] Wired ke `src/strategy/trigger_m5.py`: FVG/OB/Liquidity/Volume Profile dihitung dari `m5_candles`, sinyal di bawah `minScoreToNotify` (default 0.0 = tidak memfilter) dibatalkan
+- [ ] Validasi bobot komponen scorer lewat backtest (belum, prioritas di bagian 6)
 
 ## 3. Storage (D1)
 
@@ -41,7 +39,7 @@ Status: `[ ]` belum, `[x]` selesai, `[~]` sedang dikerjakan.
 - [ ] Row kartu ringkasan: Total PnL, Win Rate, Total Trades (24h), Current Balance, Strategy label, Risk Management label
 - [ ] Chart utama: candlestick + overlay Order Block (rect), FVG (rect), garis liquidity — lanjutan dari `lightweight-charts` yang sudah dipakai, tambah primitive/rectangle untuk OB & FVG
 - [ ] Volume Profile horizontal di sisi kanan/kiri chart
-- [ ] Panel "Latest Signal" kanan: arah (LONG/SHORT), Entry/SL/TP1/TP2, confidence bar, checklist 5 komponen, tombol "View Details"
+- [ ] Panel "Latest Signal" kanan: arah (LONG/SHORT), Entry/SL/TP1/TP2, confidence bar, checklist 5 komponen (sudah tersedia dari `signal.checklist`), tombol "View Details"
 - [ ] Section "Signals Overview" — tabel ringkas (sudah ada sebagian, perlu kolom confidence)
 - [ ] Section "Performance (Last 7 Days)" — line chart PnL + tabel Pair Performance (PnL/Win Rate/Trades per pair)
 - [ ] Section "Discord Notifications" — feed realtime dari tabel `signals`/`trades` terbaru
@@ -50,7 +48,7 @@ Status: `[ ]` belum, `[x]` selesai, `[~]` sedang dikerjakan.
 
 ## 6. Backtest & validasi
 
-- [ ] Backtest FVG/OB/Volume Profile terhadap data historis sebelum dipakai production (parameter belum di-lock, sama seperti komponen ICT lain di repo ini)
+- [ ] Backtest FVG/OB/Volume Profile/scorer terhadap data historis sebelum dipakai production (parameter & bobot belum di-lock, sama seperti komponen ICT lain di repo ini)
 - [ ] Tambah unit test untuk tiap detektor baru (ikuti pola `tests/` yang sudah ada, target tetap tanpa jaringan / pakai data candle sintetis)
 
 ---
