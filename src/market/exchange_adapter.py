@@ -1,11 +1,11 @@
 """
 Adapter exchange/provider market data.
 Memisahkan simbol internal (BTCUSDT, GOLDUSDT) dari simbol exchange aktual
-(mis. BTC-USDT-SWAP / PAXG-USDT di OKX) sesuai PRD Â§1 & Â§7.
+(mis. BTC-USDT-SWAP / PAXG-USDT di OKX) sesuai PRD bagian 1 dan 7.
 
 Setiap adapter wajib:
 - return list[Candle] terurut ascending berdasarkan open_time
-- HANYA mengembalikan candle yang sudah closed/final (PRD Â§5)
+- HANYA mengembalikan candle yang sudah closed/final (PRD bagian 5)
 - retry ringan di level fetch_candles.py, bukan di sini
 """
 
@@ -47,7 +47,7 @@ class BinanceFuturesAdapter(ExchangeAdapter):
 
 
 class BinanceSpotAdapter(ExchangeAdapter):
-    """Spot public klines (dipakai untuk PAXGUSDT sebagai proxy GOLDUSDT)."""
+    """Spot public klines untuk instrumen spot yang dikonfigurasi."""
 
     name = "binance_spot"
 
@@ -101,8 +101,7 @@ class KrakenSpotAdapter(ExchangeAdapter):
     Kraken spot public OHLC. Alternatif sumber data (bukan yang aktif di symbols.json)
     kalau OKX bermasalah; Binance membalas HTTP 451 ke IP runner GitHub Actions (AS).
 
-    exchange_symbol = kode pair Kraken, mis. "XBTUSD" (BTC/USD) atau "PAXGUSD"
-    (PAXG/USD). Harga dalam USD, bukan USDT.
+    exchange_symbol = kode pair Kraken, mis. "XBTUSD" (BTC/USD). Harga dalam USD, bukan USDT.
     """
 
     name = "kraken_spot"
@@ -223,8 +222,7 @@ def _parse_okx_candles(payload: dict, inst_id: str, timeframe: str, now_ms: int)
     - Baris: [ts_ms, open, high, low, close, vol, volCcy, volCcyQuote, confirm],
       terurut TERBARU dulu. confirm "1" = candle sudah closed, "0" = masih berjalan.
     - Satuan volume beda antar jenis instrumen: SPOT -> `vol` sudah dalam koin dasar
-      (diverifikasi pada data PAXG-USDT); SWAP -> `vol` dalam jumlah kontrak, sedangkan
-      `volCcy` dalam koin dasar (menurut dokumentasi OKX, belum diverifikasi langsung).
+      SWAP -> `vol` dalam jumlah kontrak, sedangkan `volCcy` dalam koin dasar.
       Dipakai volume koin dasar supaya konsisten dengan feed Binance.
     - Interval tanpa transaksi tetap dikirim OKX sebagai candle datar (volume 0),
       jadi deret waktunya kontigu dan tidak perlu ditambal di sini.
