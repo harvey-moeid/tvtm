@@ -86,7 +86,7 @@ def send_discord_signal(webhook_url, signal):
 
 def send_discord_trade_closed(webhook_url, trade):
     pnl_r = float(trade.get("pnl_r") or 0)
-    direction_icon = "ð¢" if pnl_r >= 0 else "ð´"
+    direction_icon = "\\U0001F7E2" if pnl_r >= 0 else "\\U0001F534"
     payload = {
         "username": "TV Alert Relay",
         "embeds": [
