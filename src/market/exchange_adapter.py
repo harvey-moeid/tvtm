@@ -1,11 +1,11 @@
 """
 Adapter exchange/provider market data.
 Memisahkan simbol internal (BTCUSDT, GOLDUSDT) dari simbol exchange aktual
-(mis. BTC-USDT-SWAP / PAXG-USDT di OKX) sesuai PRD §1 & §7.
+(mis. BTC-USDT-SWAP / PAXG-USDT di OKX) sesuai PRD Â§1 & Â§7.
 
 Setiap adapter wajib:
 - return list[Candle] terurut ascending berdasarkan open_time
-- HANYA mengembalikan candle yang sudah closed/final (PRD §5)
+- HANYA mengembalikan candle yang sudah closed/final (PRD Â§5)
 - retry ringan di level fetch_candles.py, bukan di sini
 """
 
@@ -192,7 +192,7 @@ class OkxAdapter(ExchangeAdapter):
     OKX v5 public market data (tanpa API key), spot maupun perpetual swap.
 
     exchange_symbol = instId OKX, mis. "BTC-USDT-SWAP" (perp USDT-margined, setara
-    Binance USDT-M futures) atau "PAXG-USDT" (spot). Dipakai karena Binance (HTTP 451)
+    Binance USDT-M futures) atau instrumen spot lain. Dipakai karena Binance (HTTP 451)
     dan Bybit (HTTP 403) memblokir IP runner GitHub Actions.
     """
 
