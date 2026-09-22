@@ -2,7 +2,7 @@ from src.models import Direction
 from src.strategy.tracker import _r_multiple,track_trade_row
 from tests.conftest import FakeD1Client,make_candle
 def row(**kw):
-    r={"id":1,"signal_key":"s1","symbol":"BTCUSDT","market":"futures","timeframe":"5m","direction":"BUY","entry_price":100.0,"stop_loss":95.0,"take_profit_1":105.0,"take_profit_2":110.0,"entry_time":"2026-01-01T00:00:00Z","status":"OPEN","tp1_hit":0}; r.update(kw); return r
+    r={"id":1,"signal_key":"s1","symbol":"BTCUSDT","market":"futures","timeframe":"5m","direction":"BUY","entry_price":100.0,"stop_loss":95.0,"take_profit_1":105.0,"take_profit_2":110.0,"entry_time":"2023-11-14T22:13:20Z","status":"OPEN","tp1_hit":0}; r.update(kw); return r
 def test_buy_hits_tp1_then_tp2():
     d=FakeD1Client(); d.trades.append(row()); candles=[make_candle(1,100,106,99,104),make_candle(2,105,111,104,110)]
     assert track_trade_row(d,d.trades[0],candles)=="CLOSED_TP2"; assert d.trades[0]["status"]=="CLOSED" and d.trades[0]["pnl_r"]==2.0
