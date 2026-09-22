@@ -21,7 +21,12 @@
     "minRiskRewardRatio": 1.2,
     "requireVolumeConfirmation": false,
     "volumeLookbackCandles": 20,
-    "minVolumeMultiplier": 1.0
+    "minVolumeMultiplier": 1.0,
+    "fvgMinGapPct": 0.0,
+    "obLookback": 10,
+    "liquidityEqualTolerancePct": 0.05,
+    "volumeProfileBucketCount": 24,
+    "minScoreToNotify": 0.0
   },
   "overrides": {
     "BTCUSDT": {
