@@ -117,7 +117,7 @@ button,select,input{font:inherit}button{cursor:pointer}
     <div class="pair"><div class="pair-main"><div class="coin gold">Au</div><div><strong>GOLDUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
     <div class="pair"><div class="pair-main"><div class="coin eth">ETH</div><div><strong>ETHUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
   </div>
-  <div class="bot"><div class="bot-head"><div class="bot-icon">o</div><div><b>BYGA Bot</b><div class="running">RUNNING</div></div></div><div class="checks"><span>Market Data</span><span>Signal Engine</span><span>Risk Management</span><span>Notification (Discord)</span></div></div>
+  <div class="bot"><div class="bot-head"><div class="bot-icon" aria-hidden="true">B</div><div><b>BYGA Bot</b><div class="running">RUNNING</div></div></div><div class="checks"><span>Market Data</span><span>Signal Engine</span><span>Risk Management</span><span>Notification (Discord)</span></div></div>
 </aside>
 <main class="main">
 <header class="topbar">
@@ -160,7 +160,7 @@ button,select,input{font:inherit}button{cursor:pointer}
         <div><span><i class="check" id="obIcon">OK</i>Order Block</span><b id="ob"> - </b></div>
         <div><span><i class="check" id="vpIcon">OK</i>Volume Profile</span><b id="vp"> - </b></div>
       </div>
-      <button class="view" id="viewSignal">View Details -></button>
+      <button class="view" id="viewSignal">View Details</button>
     </div>
   </aside>
 </section>
@@ -178,7 +178,7 @@ button,select,input{font:inherit}button{cursor:pointer}
     <div class="pair-list" id="perfPairs"><div class="empty" style="padding:14px 0">Loading performance...</div></div>
   </article>
   <article class="panel discord-panel">
-    <div class="panel-head"><div class="panel-title">Discord Notifications</div><span class="running">o Connected</span></div>
+    <div class="panel-head"><div class="panel-title">Discord Notifications</div><span class="running">Connected</span></div>
     <div id="notifications"><div class="empty">Loading notifications...</div></div>
   </article>
 </section>
@@ -199,6 +199,12 @@ const fmt=n=>Number(n||0).toLocaleString("id-ID");
 const money=n=>Number(n||0).toLocaleString("id-ID",{minimumFractionDigits:1,maximumFractionDigits:1});
 const fmtTime=v=>v?new Date(v).toLocaleString("id-ID",{day:"2-digit",month:"2-digit",hour:"2-digit",minute:"2-digit",hour12:false}).replace(",",""):" - ";
 const state={signals:[],latest:null};
+const SYMBOL_META={BTCUSDT:{label:"BTC",className:""},GOLDUSDT:{label:"Au",className:"gold"},ETHUSDT:{label:"ETH",className:"eth"}};
+const cleanSymbol=v=>String(v??"").trim().toUpperCase().replace(/[-_\s]/g,"");
+const cleanDirection=v=>String(v??"").trim().toUpperCase();
+const validNumber=v=>{const n=Number(v);return Number.isFinite(n)?n:null;};
+const formatConfidence=v=>{const n=validNumber(v);if(n===null)return null;const pct=n>=0&&n<=1?n*100:n;return Math.max(0,Math.min(100,pct));};
+function setSignalCoin(symbol){const el=$("signalCoin"),meta=SYMBOL_META[cleanSymbol(symbol)]||{label:"?",className:""};el.textContent=meta.label;el.className="coin"+(meta.className?" "+meta.className:"");}
 
 function clock(){ $("clock").textContent=new Date().toLocaleString("id-ID",{year:"numeric",month:"2-digit",day:"2-digit",hour:"2-digit",minute:"2-digit",second:"2-digit",hour12:false})+" WIB"; }
 setInterval(clock,1000);clock();
@@ -240,28 +246,37 @@ function renderChecklist(checklistJson){
  }
 }
 function renderLatest(r){
- if(!r)return;
+ const empty=()=>{
+  state.latest=null;setSignalCoin("");
+  $("signalDir").textContent="-";$("signalDir").style.color="var(--muted)";$("signalDir").style.background="rgba(126,149,173,.10)";
+  $("signalSymbol").textContent="No signal";$("signalTf").textContent="Waiting for signal";$("signalTime").textContent="-";
+  ["entry","sl","tp1","tp2","confidence","score"].forEach(id=>$(id).textContent=" - ");
+  $("confidenceBar").style.width="0%";renderChecklist(null);
+ };
+ if(!r){empty();return;}
  state.latest=r;
- const buy=r.direction==="BUY";
- $("signalDir").textContent=buy?"LONG":"SHORT";$("signalDir").style.color=buy?"var(--green)":"var(--red)";
- $("signalDir").style.background=buy?"rgba(0,230,162,.12)":"rgba(255,77,98,.12)";
- $("signalSymbol").textContent=r.symbol||" - ";$("signalTf").textContent=r.timeframe||" - ";$("signalTime").textContent=(r.timeframe||"M5")+"  /  "+fmtTime(r.candle_time);
- $("entry").textContent=money(r.price);$("sl").textContent=money(r.sl??r.stop_loss);$("tp1").textContent=money(r.tp1??r.take_profit_1);$("tp2").textContent=money(r.tp2??r.take_profit_2);
- const conf=Number(r.confidence_pct??r.confidence??r.score??0);const pct=conf<=1?conf*100:conf;
- $("confidence").textContent=Math.round(pct)+"%";$("confidenceBar").style.width=Math.max(0,Math.min(100,pct))+"%";
+ const symbol=cleanSymbol(r.symbol),direction=cleanDirection(r.direction),buy=direction==="BUY",tf=String(r.timeframe??"").trim().toUpperCase()||"M5";
+ setSignalCoin(symbol);
+ $("signalDir").textContent=direction==="BUY"?"LONG":direction==="SELL"?"SHORT":"-";
+ $("signalDir").style.color=buy?"var(--green)":direction==="SELL"?"var(--red)":"var(--muted)";
+ $("signalDir").style.background=buy?"rgba(0,230,162,.12)":direction==="SELL"?"rgba(255,77,98,.12)":"rgba(126,149,173,.10)";
+ $("signalSymbol").textContent=symbol||" - ";$("signalTf").textContent=tf;$("signalTime").textContent=tf+"  /  "+fmtTime(r.candle_time||r.created_at);
+ $("entry").textContent=money(validNumber(r.price));$("sl").textContent=money(validNumber(r.sl??r.stop_loss));$("tp1").textContent=money(validNumber(r.tp1??r.take_profit_1));$("tp2").textContent=money(validNumber(r.tp2??r.take_profit_2));
+ const pct=formatConfidence(r.confidence_pct);
+ $("confidence").textContent=pct===null?" - ":Math.round(pct)+"%";$("confidenceBar").style.width=(pct===null?0:pct)+"%";
  $("score").innerHTML=(r.score!=null?esc(r.score):" - ")+"<small>Score</small>";
  renderChecklist(r.checklist_json);
 }
 function renderTable(rows){
  $("tbody").innerHTML=rows.length?rows.slice(0,7).map(r=>{
-  const buy=r.direction==="BUY";
-  const conf=Number(r.confidence||r.score||0);const pct=conf<=1?conf*100:conf;
-  return "<tr><td>"+esc(fmtTime(r.candle_time))+"</td><td><b>"+esc(r.symbol)+"</b></td><td>"+esc(r.timeframe)+"</td><td><span class='badge "+(buy?"b-buy":"b-sell")+"'>"+(buy?"LONG":"SHORT")+"</span></td><td>"+esc(money(r.price))+"</td><td class='red'>"+esc(money(r.sl??r.stop_loss))+"</td><td class='green'>"+esc(money(r.tp1??r.take_profit_1))+"</td><td class='green'>"+Math.round(pct)+"%</td></tr>"
+  const direction=cleanDirection(r.direction),buy=direction==="BUY",pct=formatConfidence(r.confidence_pct);
+  const symbol=cleanSymbol(r.symbol),tf=String(r.timeframe??"").trim().toUpperCase();
+  return "<tr><td>"+esc(fmtTime(r.candle_time||r.created_at))+"</td><td><b>"+esc(symbol||" - ")+"</b></td><td>"+esc(tf||" - ")+"</td><td><span class='badge "+(buy?"b-buy":direction==="SELL"?"b-sell":"")+"'>"+(buy?"LONG":direction==="SELL"?"SHORT":"-")+"</span></td><td>"+esc(money(r.price))+"</td><td class='red'>"+esc(money(r.sl??r.stop_loss))+"</td><td class='green'>"+esc(money(r.tp1??r.take_profit_1))+"</td><td class='green'>"+(pct===null?" - ":Math.round(pct)+"%")+"</td></tr>";
  }).join(""):"<tr><td colspan='8'><div class='empty'>No signals found.</div></td></tr>";
 }
 function renderNotifications(rows){
  const list=rows.slice(0,4);
- $("notifications").innerHTML=list.length?list.map((r,i)=>"<div class='notif'><div class='notif-head'><span class='discord-icon'>o</span><b>BYGA Bot</b><small>"+esc(fmtTime(r.candle_time))+"</small></div><p><b>"+(i?"Signal: ":"New Signal: ")+esc(r.symbol)+" ("+esc(r.timeframe)+") "+esc(r.direction)+"</b><br>Entry: "+esc(money(r.price))+"  /  SL: "+esc(money(r.sl??r.stop_loss))+"  /  TP1: "+esc(money(r.tp1??r.take_profit_1))+"<br>Confidence: "+esc(r.confidence??" - ")+"  /  Delivery: "+(r.notified?"Sent":"Pending")+"</p></div>").join(""):"<div class='empty'>No recent notifications.</div>";
+ $("notifications").innerHTML=list.length?list.map((r,i)=>"<div class='notif'><div class='notif-head'><span class='discord-icon'>o</span><b>BYGA Bot</b><small>"+esc(fmtTime(r.candle_time))+"</small></div><p><b>"+(i?"Signal: ":"New Signal: ")+esc(r.symbol)+" ("+esc(r.timeframe)+") "+esc(r.direction)+"</b><br>Entry: "+esc(money(r.price))+"  /  SL: "+esc(money(r.sl??r.stop_loss))+"  /  TP1: "+esc(money(r.tp1??r.take_profit_1))+"<br>Confidence: "+(formatConfidence(r.confidence_pct)===null?" - ":Math.round(formatConfidence(r.confidence_pct))+"%")+"  /  Delivery: "+(r.notified?"Sent":"Pending")+"</p></div>").join(""):"<div class='empty'>No recent notifications.</div>";
 }
 // KPI total/buy-sell/latest: sumber kebenarannya /api/stats (agregat menyeluruh,
 // sama seperti summary.signals/buys/sells/latest_signal di sana). notified/pending
