@@ -1,152 +1,56 @@
 from __future__ import annotations
-
-from datetime import datetime, timedelta, timezone
-from typing import Any, Optional
-
+from datetime import datetime,timedelta,timezone
+from typing import Any,Optional
 from src.models import Candle
-
-BASE_TIME_MS = 1_700_000_000_000  # epoch ms tetap, arbitrer, cuma butuh konsisten
-INTERVAL_MS = 5 * 60 * 1000  # 5 menit
-
-
-def make_candle(
-    idx: int,
-    o: float,
-    h: float,
-    l: float,
-    c: float,
-    v: float = 1000.0,
-    interval_ms: int = INTERVAL_MS,
-    base: int = BASE_TIME_MS,
-) -> Candle:
-    open_time = base + idx * interval_ms
-    close_time = open_time + interval_ms - 1
-    return Candle(
-        open_time=open_time,
-        close_time=close_time,
-        open=o,
-        high=h,
-        low=l,
-        close=c,
-        volume=v,
-        is_closed=True,
-    )
-
-
-_INSERT_COLUMNS = [
-    "signal_key", "cooldown_key", "symbol", "market", "timeframe", "direction",
-    "m15_bias", "price", "zone_type", "zone_level", "structure_event", "pattern",
-    "candle_time", "candle_open_time_ms", "stop_loss", "take_profit_1",
-    "take_profit_2", "risk_reward_1", "risk_reward_2", "atr",
-    "zone_tolerance_pct_used",
-]
-
-
+BASE_TIME_MS=1_700_000_000_000
+INTERVAL_MS=5*60*1000
+def make_candle(idx:int,o:float,h:float,l:float,c:float,v:float=1000.0,interval_ms:int=INTERVAL_MS,base:int=BASE_TIME_MS)->Candle:
+    t=base+idx*interval_ms
+    return Candle(t,t+interval_ms-1,o,h,l,c,v,True)
+_INSERT_COLUMNS=["signal_key","cooldown_key","symbol","market","timeframe","direction","m15_bias","price","zone_type","zone_level","structure_event","pattern","candle_time","candle_open_time_ms","stop_loss","take_profit_1","take_profit_2","risk_reward_1","risk_reward_2","atr","zone_tolerance_pct_used","confidence_pct","score","checklist_json"]
 class FakeD1Client:
-    """
-    Test double in-memory untuk D1Client.
-
-    Meniru subset perilaku SQL yang BENAR-BENAR dipakai oleh kode produksi
-    (signal_repository.py, cooldown.py) lewat pencocokan pola string SQL --
-    bukan implementasi SQLite sungguhan -- supaya idempotency, cooldown
-    permanen, dan rate-limit waktu bisa diuji end-to-end tanpa jaringan/HTTP
-    ke Cloudflare D1. `created_at` disimulasikan bisa digeser mundur lewat
-    `backdate_all(minutes)` untuk menguji rate-limit kadaluarsa.
-    """
-
-    def __init__(self) -> None:
-        self.rows: list[dict[str, Any]] = []
-        self._next_id = 1
-
-    def backdate_all(self, minutes: int) -> None:
+    def __init__(self): self.rows=[]; self.trades=[]; self._next_id=1; self._next_trade_id=1
+    def backdate_all(self,minutes:int):
         for r in self.rows:
-            created = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
-            r["created_at"] = (created - timedelta(minutes=minutes)).strftime(
-                "%Y-%m-%dT%H:%M:%S.%fZ"
-            )
-
-    def query_one(self, sql: str, params: Optional[list] = None) -> Optional[dict[str, Any]]:
-        params = params or []
-        sql_norm = " ".join(sql.split())
-
-        if "SELECT id, notified FROM signals WHERE signal_key" in sql_norm:
-            signal_key = params[0]
+            dt=datetime.fromisoformat(r["created_at"].replace("Z","+00:00")); r["created_at"]=(dt-timedelta(minutes=minutes)).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
+    def query_one(self,sql:str,params:Optional[list]=None):
+        p=params or []; s=" ".join(sql.split())
+        if "SELECT id, notified FROM signals WHERE signal_key" in s:
+            return next(({"id":r["id"],"notified":r["notified"]} for r in self.rows if r["signal_key"]==p[0]),None)
+        if "SELECT id FROM signals WHERE cooldown_key" in s:
+            return next(({"id":r["id"]} for r in self.rows if r["cooldown_key"]==p[0] and r["notified"]==1),None)
+        if "SELECT id FROM signals" in s and "symbol = ?" in s:
+            symbol,timeframe,direction,offset_expr=p; minutes=int(offset_expr.strip().split()[0]); cutoff=datetime.now(timezone.utc)+timedelta(minutes=minutes)
             for r in self.rows:
-                if r["signal_key"] == signal_key:
-                    return {"id": r["id"], "notified": r["notified"]}
+                if r["symbol"]==symbol and r["timeframe"]==timeframe and r["direction"]==direction and r["notified"]==1:
+                    created=datetime.fromisoformat(r["created_at"].replace("Z","+00:00"))
+                    if created>=cutoff:return {"id":r["id"]}
             return None
-
-        if "SELECT id FROM signals WHERE cooldown_key" in sql_norm:
-            cooldown_key = params[0]
+        raise NotImplementedError(s)
+    def execute(self,sql:str,params:Optional[list]=None):
+        p=params or []; s=" ".join(sql.split())
+        if s.startswith("INSERT OR IGNORE INTO signals"):
+            if any(r["signal_key"]==p[0] for r in self.rows): return {"success":True,"result":[{"meta":{"rows_written":0}}]}
+            row=dict(zip(_INSERT_COLUMNS,p)); row.update(id=self._next_id,notified=0,created_at=datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")); self._next_id+=1; self.rows.append(row); return {"success":True,"result":[{"meta":{"rows_written":1}}]}
+        if s.startswith("UPDATE signals SET notified"):
+            n=0
             for r in self.rows:
-                if r["cooldown_key"] == cooldown_key and r["notified"] == 1:
-                    return {"id": r["id"]}
-            return None
-
-        if "SELECT id FROM signals" in sql_norm and "symbol = ?" in sql_norm:
-            symbol, timeframe, direction, offset_expr = params
-            minutes = int(offset_expr.strip().split()[0])  # "-N minutes" -> -N (negatif)
-            cutoff = datetime.now(timezone.utc) + timedelta(minutes=minutes)
-            for r in self.rows:
-                if (
-                    r["symbol"] == symbol
-                    and r["timeframe"] == timeframe
-                    and r["direction"] == direction
-                    and r["notified"] == 1
-                ):
-                    created = datetime.fromisoformat(r["created_at"].replace("Z", "+00:00"))
-                    if created >= cutoff:
-                        return {"id": r["id"]}
-            return None
-
-        raise NotImplementedError(f"FakeD1Client belum mendukung query: {sql_norm[:80]}")
-
-    def execute(self, sql: str, params: Optional[list] = None) -> dict:
-        params = params or []
-        sql_norm = " ".join(sql.split())
-
-        if sql_norm.startswith("INSERT OR IGNORE INTO signals"):
-            signal_key = params[0]
-            if any(r["signal_key"] == signal_key for r in self.rows):
-                return {"success": True, "result": [{"meta": {"rows_written": 0}}]}
-            row = dict(zip(_INSERT_COLUMNS, params))
-            row["id"] = self._next_id
-            row["notified"] = 0
-            row["created_at"] = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ")
-            self._next_id += 1
-            self.rows.append(row)
-            return {"success": True, "result": [{"meta": {"rows_written": 1}}]}
-
-        if sql_norm.startswith("UPDATE signals SET notified"):
-            signal_key = params[0]
-            written = 0
-            for r in self.rows:
-                if r["signal_key"] == signal_key:
-                    r["notified"] = 1
-                    written = 1
-            return {"success": True, "result": [{"meta": {"rows_written": written}}]}
-
-        raise NotImplementedError(f"FakeD1Client belum mendukung execute: {sql_norm[:80]}")
-
-
-def seed_notified_row(d1: FakeD1Client, **overrides) -> dict:
-    """Helper test: masukkan 1 row `notified=1` langsung ke FakeD1Client,
-    dipakai untuk mensimulasikan "sudah pernah dinotifikasi" saat menguji
-    cooldown_key permanen maupun rate-limit waktu (cooldownMinutes)."""
-    row = {
-        "signal_key": f"k{d1._next_id}", "cooldown_key": "cdk_default", "symbol": "BTCUSDT",
-        "market": "futures", "timeframe": "5m", "direction": "BUY", "m15_bias": "BULLISH",
-        "price": 100.0, "zone_type": "support", "zone_level": 99.0,
-        "structure_event": "BOS_BULLISH", "pattern": "bullish_pin_bar",
-        "candle_time": "2026-01-01T00:00:00Z", "candle_open_time_ms": 0,
-        "stop_loss": None, "take_profit_1": None, "take_profit_2": None,
-        "risk_reward_1": None, "risk_reward_2": None, "atr": None,
-        "zone_tolerance_pct_used": None,
-    }
-    row.update(overrides)
-    row["id"] = d1._next_id
-    row["notified"] = 1
-    row.setdefault("created_at", datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%S.%fZ"))
-    d1._next_id += 1
-    d1.rows.append(row)
-    return row
+                if r["signal_key"]==p[0]:r["notified"]=1;n+=1
+            return {"success":True,"result":[{"meta":{"rows_written":n}}]}
+        if s.startswith("INSERT OR IGNORE INTO trades"):
+            if any(r["signal_key"]==p[0] for r in self.trades): return {"success":True,"result":[{"meta":{"rows_written":0}}]}
+            keys=["signal_key","symbol","market","timeframe","direction","entry_price","stop_loss","take_profit_1","take_profit_2","entry_time"]
+            row=dict(zip(keys,p)); row.update(id=self._next_trade_id,status="OPEN",tp1_hit=0,tp1_hit_at=None,exit_price=None,exit_time=None,exit_reason=None,pnl_pct=None,pnl_r=None); self._next_trade_id+=1; self.trades.append(row); return {"success":True,"result":[{"meta":{"rows_written":1}}]}
+        if s.startswith("SELECT * FROM trades"):
+            return {"success":True,"result":[{"results":[r for r in self.trades if r["status"] in ("OPEN","TP1_HIT")]}]}
+        if s.startswith("UPDATE trades SET"):
+            trade_id=p[-1]
+            for r in self.trades:
+                if r["id"]==trade_id:
+                    # tracker builds assignments in dict insertion order
+                    assignment=s.split("SET ",1)[1].split(" WHERE",1)[0].replace(" updated_at=strftime('%Y-%m-%dT%H:%M:%fZ','now')","")
+                    names=[x.split("=")[0].strip() for x in assignment.split(",") if x.strip()]
+                    for k,v in zip(names,p[:-1]): r[k]=v
+                    return {"success":True,"result":[{"meta":{"rows_written":1}}]}
+            return {"success":True,"result":[{"meta":{"rows_written":0}}]}
+        raise NotImplementedError(s)
