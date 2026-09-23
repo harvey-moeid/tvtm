@@ -57,17 +57,25 @@ lokasi) dan Bybit membalas 403, jadi data candle diambil dari **OKX v5 public AP
 (`okx` di `src/market/exchange_adapter.py`, `GET /api/v5/market/candles`, tanpa API key):
 
 - `BTCUSDT` -> `BTC-USDT-SWAP` (perpetual USDT-margined; setara Binance USDT-M futures).
-- `GOLDUSDT` -> `PAXG-USDT` (PAX Gold/USDT, **spot**). OKX tidak punya perpetual emas
-  (`XAUT-USDT-SWAP` dan `PAXG-USDT-SWAP` tidak ada), dan spot PAXG di OKX likuiditasnya
-  tipis: banyak candle 5m tanpa transaksi (datar, volume 0). OKX sendiri mengirim interval
-  kosong sebagai candle datar, jadi deret waktunya tetap kontigu.
+- `GOLDUSDT` -> `XAU-USDT-SWAP` (perpetual emas OKX). **Catatan histori**: sebelumnya
+  simbol ini memakai `PAXG-USDT` (spot PAX Gold) sebagai proxy, karena pada saat itu
+  OKX belum punya perpetual emas asli. OKX kemudian merilis/merename instrumen ini
+  (`XAUT-USDT-SWAP` -> `XAU-USDT-SWAP`) yang menurut OKX merujuk langsung ke harga spot
+  emas sebagai underlying/external price source - jadi representasi GOLDUSD/XAUUSD yang
+  lebih akurat daripada proxy PAXG spot, dan sudah dipindahkan di `symbols.json`.
+  **Penting untuk dashboard**: `dashboard/functions/api/candles.js` HARUS selalu
+  memakai `exchange_symbol` yang SAMA PERSIS dengan `symbols.json` - keduanya sempat
+  tidak sinkron (dashboard masih PAXG-USDT saat engine sudah pindah ke XAU-USDT-SWAP),
+  membuat chart di dashboard menampilkan instrumen berbeda dari yang dipakai untuk
+  menghasilkan sinyal.
 
 Catatan teknis: candle OKX datang terbaru-dulu dan punya flag `confirm` (1 = closed);
 adapter membalik urutannya dan hanya menganggap closed kalau `confirm=1` DAN waktunya sudah
-lewat. Satuan volume beda per jenis instrumen (spot: `vol` = koin dasar, sudah dicek pada data
-PAXG-USDT; swap: `volCcy` = koin dasar dan `vol` = jumlah kontrak menurut dokumentasi OKX,
-belum dicek langsung), dan adapter menormalkannya ke koin dasar. Limit OKX
-maksimal 300 candle per panggilan (bot butuh ~205). IP runner GitHub dipakai bersama, jadi
+lewat. Satuan volume beda per jenis instrumen (spot: `vol` = koin dasar; swap/perpetual:
+`volCcy` = koin dasar dan `vol` = jumlah kontrak menurut dokumentasi OKX), dan adapter
+menormalkannya ke koin dasar (dipakai jg oleh `src/market/history_fetch.py` untuk backtest
+dan `dashboard/functions/api/candles.js` untuk chart). Limit OKX maksimal 300 candle per
+panggilan endpoint live (bot butuh ~205). IP runner GitHub dipakai bersama, jadi
 HTTP 429 (rate limit) sesekali mungkin terjadi; fetch sudah retry 3x dengan jeda 2 detik.
 
 Adapter lain (`kraken_spot`, `binance_spot`, `binance_futures`) tetap terdaftar dan bisa
@@ -76,13 +84,6 @@ dipilih lewat field `exchange` di `symbols.json`.
 Kalau semua market gagal mengambil data candle, `python -m src.main` keluar dengan
 kode 1 sehingga run di GitHub Actions berwarna merah (sebelumnya tetap hijau dengan
 "no signal generated").
-
-### Catatan penting soal simbol GOLDUSDT (AC-14 PRD)
-
-Tidak ada pair asli "GOLDUSDT" di exchange manapun. Implementasi ini memakai
-**PAX Gold (PAXG)** sebagai proxy - PAXG melacak harga emas 1:1 per troy ounce.
-**Wajib divalidasi/diganti** dengan data provider resmi sebelum dipakai untuk
-keputusan production, sesuai catatan di `symbols.json`.
 
 ## Anti-noise filter (§13 PRD)
 
@@ -93,7 +94,8 @@ Ada 2 threshold terpisah, karena pin bar secara definisi butuh body KECIL:
 - `minPinBarBodyRangeRatio` (default 0.03) - utk pin bar, cuma menyaring doji murni
   (body ~0), bukan menyaring pin bar itu sendiri.
 
-Nilai-nilai ini **belum di-lock** dan perlu tuning lewat backtest.
+Nilai-nilai ini **belum di-lock** dan perlu tuning lewat backtest (lihat bagian
+"Backtest" di bawah - tooling-nya sudah tersedia).
 
 ## Idempotency & Cooldown (§5 & §14 PRD)
 
@@ -127,9 +129,13 @@ membawa:
 - **Take Profit 1 & 2**: kelipatan R (`riskRewardTargets`, default `[1.5, 3.0]`) dari
   risiko aktual.
 - **Filter kelayakan risiko**: kalau jarak SL di luar `minStopDistancePct`/
-  `maxStopDistancePct`, atau R:R di bawah `minRiskRewardRatio`, sinyal **dibatalkan**
-  sepenuhnya - bukan cuma catatan info. Sebelumnya semua sinyal yang lolos price-action
-  langsung dikirim apa adanya, terlepas dari apakah trade-nya masuk akal secara risiko.
+  `maxStopDistancePct`, atau R:R (`riskRewardTargets[0]`) di bawah `minRiskRewardRatio`,
+  sinyal **dibatalkan** sepenuhnya - bukan cuma catatan info. **Catatan**: karena TP
+  didefinisikan SEBAGAI kelipatan risiko itu sendiri, cek R:R ini pada dasarnya
+  memvalidasi konfigurasi (statis, sama untuk semua sinyal dgn config yang sama), bukan
+  R:R dinamis per-sinyal berdasarkan level likuiditas independen. Sebelumnya semua
+  sinyal yang lolos price-action langsung dikirim apa adanya, terlepas dari apakah
+  trade-nya masuk akal secara risiko.
 
 Set `requireRiskManagement: false` di `strategy.json` untuk kembali ke perilaku lama
 (sinyal arah saja, tanpa SL/TP) kalau diperlukan.
@@ -202,15 +208,60 @@ tidak mendukung `ADD COLUMN IF NOT EXISTS` dan akan error di run kedua.
 | `volumeLookbackCandles` / `minVolumeMultiplier` | 20 / 1.0 | Parameter filter volume |
 
 **Semua nilai default di atas belum divalidasi backtest** (sama seperti parameter lama)
-dan perlu ditinjau dengan data historis riil sebelum dipakai penuh di production.
+dan perlu ditinjau dengan data historis riil sebelum dipakai penuh di production - lihat
+bagian "Backtest" di bawah.
+
+## Backtest
+
+`src/backtest/` berisi walk-forward simulator yang me-replay strategi live (bias M15 ->
+trigger M5 -> risk management -> scorer) candle demi candle di atas histori OKX,
+**tanpa menyentuh D1/Discord asli**, buat mengestimasi win-rate/expectancy/drawdown
+sebelum parameter dipakai untuk keputusan trading riil:
+
+```bash
+pip install -r requirements.txt
+python scripts/backtest.py --symbol BTCUSDT --candles 6000       # ~20 hari candle M5
+python scripts/backtest.py --symbol GOLDUSDT --candles 6000 --out backtest_gold.json
+```
+
+Atau lewat GitHub Actions (kalau lingkungan lokal tidak punya akses ke `www.okx.com`):
+buka tab **Actions -> Backtest -> Run workflow**, isi `symbol` dan `candles`, hasilnya
+diunggah sebagai artifact JSON (`backtest_result.json`, retensi 90 hari).
+
+Yang dipakai ulang persis dari kode produksi (bukan reimplementasi terpisah, supaya
+hasil backtest benar-benar merepresentasikan apa yang akan terjadi kalau strategi ini
+jalan live):
+- `compute_m15_bias` / `evaluate_m5_trigger` - fungsi orkestrasi yang SAMA dipakai cron.
+- `src/strategy/pnl.py` (`r_multiple`, `pnl_pct`) - dipakai bersama oleh
+  `src/strategy/tracker.py` (live) dan `src/backtest/simulator.py`, jadi rumus PnL
+  tidak pernah diam-diam berbeda antara backtest dan live.
+- Cooldown/rate-limit disimulasikan lewat `src/backtest/store.py` (`InMemorySignalStore`)
+  memakai **jam simulasi** yang di-advance manual tiap candle - BUKAN wall-clock seperti
+  SQL produksi (`strftime(..., 'now', ...)`), karena me-replay data berbulan-bulan lalu
+  dengan wall-clock asli akan membuat `cooldownMinutes` tidak pernah aktif sama sekali.
+
+Histori diambil lewat `src/market/history_fetch.py` (endpoint OKX `history-candles`,
+paginasi mundur - beda dari `src/market/fetch_candles.py` yang dipakai cron live dan
+dibatasi 300 candle/panggilan).
+
+**Status saat ini**: engine backtest sudah dibangun dan divalidasi dengan candle
+sintetis (`tests/test_backtest_*.py` - trade lewat SL/TP terhitung tepat, cooldown
+terbukti mencegah duplikat, dst), tapi **belum pernah dijalankan terhadap data OKX
+sungguhan** (lihat `CHECKLIST.md` §6). Menjalankannya untuk BTCUSDT & GOLDUSDT lewat
+`workflow_dispatch` di atas, lalu meninjau win-rate/expectancy/drawdown hasilnya, adalah
+langkah berikutnya sebelum parameter (ATR multiplier, R:R minimum, bobot scorer) dipakai
+untuk keputusan trading riil.
+
+Hasil backtest adalah **estimasi historis, bukan jaminan performa ke depan** - tidak
+memperhitungkan slippage, funding rate perpetual, atau downtime API OKX/D1/Discord.
 
 ## Test suite
 
-Upgrade ini menyertakan unit + integration test (89 test, `tests/`) yang mengunci
-perilaku setiap modul murni (ATR, struktur, BOS/CHoCH, zona, pattern, risk management,
-volume filter, cooldown/rate-limit, idempotency) plus 1 integration test end-to-end
-`evaluate_m5_trigger` pakai data candle sintetis dan D1 client palsu in-memory (tidak
-perlu jaringan). Jalankan:
+Repo ini menyertakan unit + integration test (`tests/`) yang mengunci perilaku setiap
+modul murni (ATR, struktur, BOS/CHoCH, zona, pattern, risk management, volume filter,
+cooldown/rate-limit, idempotency, scorer, backtest engine) plus integration test
+end-to-end `evaluate_m5_trigger` pakai data candle sintetis dan D1 client palsu
+in-memory (tidak perlu jaringan). Jalankan:
 
 ```bash
 pip install -r requirements-dev.txt
@@ -218,9 +269,9 @@ pytest tests/ -v
 ```
 
 Modul I/O eksternal (`market/exchange_adapter.py`, `storage/d1_client.py`,
-`notify/notify_discord.py`) sudah lolos syntax/import check tapi **belum pernah dites
-terhadap API asli** - disarankan jalankan `workflow_dispatch` manual sekali di GitHub
-Actions sebelum mengandalkannya penuh, dan pantau log run pertama.
+`notify/notify_discord.py`, `market/history_fetch.py`) sudah lolos syntax/import check
+tapi **belum pernah dites terhadap API asli** - disarankan jalankan `workflow_dispatch`
+manual sekali di GitHub Actions sebelum mengandalkannya penuh, dan pantau log run pertama.
 
 ## Struktur decision yang perlu diperhatikan reviewer
 
@@ -233,6 +284,7 @@ Actions sebelum mengandalkannya penuh, dan pantau log run pertama.
 3. Evaluasi standalone M15 (§10 poin d PRD) belum diimplementasikan sebagai notifikasi
    terpisah - flag `standaloneM15Signals` di `strategy.json` disediakan sebagai
    placeholder untuk pengembangan lanjutan.
-4. **Belum ada backtest historis** untuk memvalidasi win-rate/expectancy strategi
-   maupun parameter risk management baru - ini prioritas berikutnya sebelum sinyal
-   dipakai untuk keputusan trading riil.
+4. **Backtest historis sudah ada tooling-nya** (`src/backtest/`, lihat bagian
+   "Backtest" di atas) untuk memvalidasi win-rate/expectancy strategi maupun parameter
+   risk management, tapi **belum pernah dijalankan terhadap data OKX sungguhan** - ini
+   prioritas berikutnya sebelum sinyal dipakai untuk keputusan trading riil.
