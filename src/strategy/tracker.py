@@ -2,13 +2,7 @@ from __future__ import annotations
 from datetime import datetime
 from src.models import Direction
 from src.storage.signal_repository import list_open_trades,update_trade
-def _r_multiple(entry,stop,exit_price,direction):
- risk=abs(entry-stop)
- if risk<=0:return 0.0
- return (exit_price-entry)/risk if direction==Direction.BUY else (entry-exit_price)/risk
-def _pnl_pct(entry,exit_price,direction):
- signed=(exit_price-entry) if direction==Direction.BUY else (entry-exit_price)
- return signed/entry*100 if entry else 0.0
+from src.strategy.pnl import pnl_pct as _pnl_pct, r_multiple as _r_multiple
 def _to_ms(iso):return int(datetime.fromisoformat(iso.replace('Z','+00:00')).timestamp()*1000)
 def track_trade_row(d1,row,candles):
  direction=Direction(row['direction']);sl=row['stop_loss'];tp1=row.get('take_profit_1');tp2=row.get('take_profit_2');hit=bool(row.get('tp1_hit')); candles=sorted((c for c in candles if c.open_time>_to_ms(row['entry_time'])),key=lambda c:c.open_time)

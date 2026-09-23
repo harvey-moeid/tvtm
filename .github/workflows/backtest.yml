@@ -1,0 +1,43 @@
+name: Backtest
+
+on:
+  workflow_dispatch:
+    inputs:
+      symbol:
+        description: "Symbol internal (BTCUSDT / GOLDUSDT)"
+        required: true
+        default: "BTCUSDT"
+        type: string
+      candles:
+        description: "Jumlah candle M5 historis yang diambil (6000 ~= 20 hari)"
+        required: false
+        default: "6000"
+        type: string
+
+jobs:
+  backtest:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+
+      - name: Run backtest
+        run: |
+          python scripts/backtest.py \
+            --symbol "${{ inputs.symbol }}" \
+            --candles "${{ inputs.candles }}" \
+            --out backtest_result.json
+
+      - name: Upload hasil backtest
+        uses: actions/upload-artifact@v4
+        with:
+          name: backtest-${{ inputs.symbol }}-${{ github.run_id }}
+          path: backtest_result.json
+          retention-days: 90
