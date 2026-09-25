@@ -117,7 +117,7 @@ button,select,input{font:inherit}button{cursor:pointer}
     <div class="pair"><div class="pair-main"><div class="coin gold">Au</div><div><strong>GOLDUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
     <div class="pair"><div class="pair-main"><div class="coin eth">ETH</div><div><strong>ETHUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
   </div>
-  <div class="bot"><div class="bot-head"><div class="bot-icon" aria-hidden="true">B</div><div><b>BYGA Bot</b><div class="running">RUNNING</div></div></div><div class="checks"><span>Market Data</span><span>Signal Engine</span><span>Risk Management</span><span>Notification (Discord)</span></div></div>
+  <div class="bot"><div class="bot-head"><div class="bot-icon" aria-hidden="true">B</div><div><b>BYGA Bot</b><div class="running">RUNNING</div></div></div><div class="checks"><span>Market Data</span><span>Signal Engine</span><span>Risk Management</span><span>Notification (Discord)</span></div><button class="view" id="runNowBtn" style="margin-top:12px;height:34px;font-size:11px">Run Now</button><div class="kpi-sub" id="runStatus" style="margin-top:6px;min-height:12px"></div></div>
 </aside>
 <main class="main">
 <header class="topbar">
@@ -365,6 +365,63 @@ async function loadChart(){
  }catch(e){$("chartStatus").textContent="Chart unavailable";}
 }
 $("chartSymbol").onchange=loadChart;$("chartTf").onchange=loadChart;
+
+function toast(msg,ok){
+ const t=$("toast"); t.textContent=msg; t.className="toast show "+(ok?"ok":"err");
+ clearTimeout(toast._h); toast._h=setTimeout(()=>t.classList.remove("show"),3500);
+}
+function getRunKey(){
+ let k=localStorage.getItem("tvtm_run_key")||"";
+ if(!k){ k=prompt("Masukkan Run Key (x-run-key) untuk menjalankan bot secara manual:")||""; if(k) localStorage.setItem("tvtm_run_key",k); }
+ return k;
+}
+let runPollTimer=null,runPollTries=0;
+function pollRun(beforeId){
+ clearInterval(runPollTimer); runPollTries=0;
+ runPollTimer=setInterval(async ()=>{
+  runPollTries++;
+  try{
+   const r=await fetch("/api/run"); const d=await r.json();
+   const runs=d.runs||[];
+   const newRun=runs.find(x=>x.id>beforeId);
+   if(newRun){
+    $("runStatus").textContent="Run #"+newRun.id+": "+newRun.status+(newRun.conclusion?(" / "+newRun.conclusion):"");
+    if(newRun.status==="completed"){
+     clearInterval(runPollTimer);
+     toast(newRun.conclusion==="success"?"Run selesai - signal check sukses.":"Run selesai dengan status: "+newRun.conclusion,newRun.conclusion==="success");
+     $("runNowBtn").disabled=false;
+     load();
+    }
+   }
+  }catch(e){}
+  if(runPollTries>40){clearInterval(runPollTimer);$("runNowBtn").disabled=false;}
+ },5000);
+}
+async function runNow(){
+ const key=getRunKey(); if(!key)return;
+ $("runNowBtn").disabled=true; $("runStatus").textContent="Memicu run...";
+ try{
+  const r=await fetch("/api/run",{method:"POST",headers:{"x-run-key":key}});
+  const d=await r.json().catch(()=>({}));
+  if(r.status===202&&d.ok){
+   toast("Run dipicu, menunggu hasil...",true);
+   pollRun(d.before_id||0);
+  }else if(r.status===401){
+   toast("Run key salah.",false); localStorage.removeItem("tvtm_run_key"); $("runNowBtn").disabled=false; $("runStatus").textContent="";
+  }else if(r.status===409){
+   toast(d.message||"Run sebelumnya masih berjalan.",false); $("runNowBtn").disabled=false;
+   if(d.run)pollRun(d.run.id-1); else $("runStatus").textContent="";
+  }else if(r.status===501){
+   toast(d.message||"Tombol Run belum dikonfigurasi.",false); $("runNowBtn").disabled=false; $("runStatus").textContent="";
+  }else{
+   toast(d.message||"Gagal memicu run.",false); $("runNowBtn").disabled=false; $("runStatus").textContent="";
+  }
+ }catch(e){
+  toast("Gagal memicu run: "+e.message,false); $("runNowBtn").disabled=false; $("runStatus").textContent="";
+ }
+}
+$("runNowBtn").onclick=runNow;
+
 initChart();loadChart();load();
 </script>
 </body></html>
