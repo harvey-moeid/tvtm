@@ -24,10 +24,10 @@ button,select,input{font:inherit}button{cursor:pointer}
 .nav{display:grid;gap:5px}.nav button{border:0;background:transparent;color:#9db2c9;text-align:left;padding:12px 14px;border-radius:9px;display:flex;align-items:center;gap:13px}
 .nav button:hover,.nav button.active{background:linear-gradient(90deg,rgba(22,135,255,.23),rgba(22,135,255,.08));color:#dff3ff}.nav svg{width:19px;height:19px;stroke:currentColor;fill:none;stroke-width:1.8}
 .nav-sep{height:1px;background:var(--line);margin:3px 10px}.side-title{font-size:11px;color:#688099;text-transform:uppercase;letter-spacing:1px;padding:0 10px}
-.pairs{display:grid;gap:5px}.pair{display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-radius:9px}.pair:hover{background:rgba(255,255,255,.025)}.pair-main{display:flex;gap:9px;align-items:center}.coin{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:11px;background:#f7931a;color:#fff}.coin.gold{background:#d69b13}.coin.eth{background:#667eea}.pair strong{font-size:12px}.pair small{display:block;color:var(--muted);font-size:10px;margin-top:1px}.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 9px rgba(0,230,162,.55)}
+.pairs{display:grid;gap:5px}.pair{display:flex;align-items:center;justify-content:space-between;padding:9px 10px;border-radius:9px;cursor:pointer}.pair:hover{background:rgba(255,255,255,.025)}.pair.active-pair{background:rgba(22,135,255,.14)}.pair-main{display:flex;gap:9px;align-items:center}.coin{width:29px;height:29px;border-radius:50%;display:grid;place-items:center;font-weight:800;font-size:11px;background:#f7931a;color:#fff}.coin.gold{background:#d69b13}.coin.eth{background:#667eea}.pair strong{font-size:12px}.pair small{display:block;color:var(--muted);font-size:10px;margin-top:1px}.live-dot{width:7px;height:7px;border-radius:50%;background:var(--green);box-shadow:0 0 9px rgba(0,230,162,.55)}
 .bot{margin-top:auto;border:1px solid var(--line);border-radius:13px;padding:14px;background:linear-gradient(145deg,rgba(8,30,51,.8),rgba(4,16,29,.8))}
 .bot-head{display:flex;align-items:center;gap:10px}.bot-icon{width:38px;height:38px;border-radius:50%;border:2px solid var(--cyan);display:grid;place-items:center;color:var(--cyan);font-size:20px}.bot b{font-size:13px}.running{color:var(--green);font-size:11px;font-weight:800}.checks{display:grid;gap:7px;margin-top:12px;color:#a6bbcf;font-size:11px}.checks span:before{content:"OK";display:inline-grid;place-items:center;width:15px;height:15px;margin-right:7px;border-radius:50%;background:#00bd86;color:#001c17;font-weight:900}
-.main{min-width:0;padding:18px 18px 28px}.topbar{display:flex;align-items:center;gap:12px;min-height:52px}.markets{display:flex;gap:10px;flex:1;overflow:auto}.market{min-width:190px;border:1px solid var(--line);background:linear-gradient(145deg,#071a2d,#061323);border-radius:11px;padding:8px 12px;display:flex;align-items:center;gap:10px}.market .coin{width:30px;height:30px}.market strong{font-size:13px}.market small{display:block;color:var(--muted);font-size:10px}.tf{margin-left:auto;display:flex;gap:4px}.tf button{border:0;background:#081a2e;color:#8ca3ba;border-radius:7px;padding:6px 10px;font-size:11px}.tf button.active{background:#0756b6;color:#fff}.top-right{display:flex;align-items:center;gap:10px;color:#9fb2c7;font-size:11px;white-space:nowrap}.live{display:flex;align-items:center;gap:7px;color:#b9c9d9}.gear{width:34px;height:34px;border:1px solid var(--line);background:var(--panel);border-radius:8px;color:#9fb2c7}
+.main{min-width:0;padding:18px 18px 28px}.topbar{display:flex;align-items:center;gap:12px;min-height:52px}.markets{display:flex;gap:10px;flex:1;overflow:auto}.market{min-width:190px;border:1px solid var(--line);background:linear-gradient(145deg,#071a2d,#061323);border-radius:11px;padding:8px 12px;display:flex;align-items:center;gap:10px;cursor:pointer}.market.active-market{border-color:#1687ff}.market .coin{width:30px;height:30px}.market strong{font-size:13px}.market small{display:block;color:var(--muted);font-size:10px}.tf{margin-left:auto;display:flex;gap:4px}.tf button{border:0;background:#081a2e;color:#8ca3ba;border-radius:7px;padding:6px 10px;font-size:11px}.tf button.active{background:#0756b6;color:#fff}.top-right{display:flex;align-items:center;gap:10px;color:#9fb2c7;font-size:11px;white-space:nowrap}.live{display:flex;align-items:center;gap:7px;color:#b9c9d9}.gear{width:34px;height:34px;border:1px solid var(--line);background:var(--panel);border-radius:8px;color:#9fb2c7}
 .kpis{display:grid;grid-template-columns:repeat(4,minmax(0,1fr)) 1.15fr 1.15fr;gap:10px;margin-top:16px}.kpi{min-height:88px;border:1px solid var(--line);border-radius:12px;padding:14px;background:linear-gradient(145deg,rgba(7,23,40,.95),rgba(4,14,26,.95));box-shadow:var(--shadow);position:relative;overflow:hidden}.kpi:after{content:"";position:absolute;width:90px;height:90px;right:-48px;top:-48px;border-radius:50%;background:rgba(22,135,255,.08)}.kpi-label{font-size:11px;color:#8298ae}.kpi-value{font:700 22px ui-monospace,SFMono-Regular,monospace;margin-top:6px;letter-spacing:-.7px}.kpi-sub{font-size:10px;color:#6c8299;margin-top:3px}.green{color:var(--green)}.red{color:var(--red)}.cyan{color:var(--cyan)}.amber{color:var(--amber)}
 .content{display:grid;grid-template-columns:minmax(0,1fr) 390px;gap:10px;margin-top:10px}.panel{border:1px solid var(--line);background:linear-gradient(145deg,rgba(6,19,34,.96),rgba(3,12,22,.96));border-radius:13px;box-shadow:var(--shadow);overflow:hidden}.chart-panel{min-width:0}.panel-head{height:54px;padding:0 14px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--line)}.panel-title{font-size:13px;font-weight:750}.panel-sub{font-size:10px;color:var(--muted);margin-top:2px}.controls{display:flex;align-items:center;gap:5px}.controls button{border:0;background:transparent;color:#9eb2c7;padding:6px 8px;border-radius:6px;font-size:10px}.controls button.active{background:#0879e7;color:white}.controls select{height:30px;background:#071a2d;border:1px solid var(--line);border-radius:7px;color:#c9d7e6;padding:0 8px;font-size:10px}
 #chartContainer{height:435px}.chart-foot{display:flex;gap:15px;padding:8px 14px;color:#71879e;font-size:10px;border-top:1px solid var(--line)}.legend{display:flex;align-items:center;gap:5px}.legend i{width:8px;height:8px;border-radius:2px;background:var(--blue)}.legend i.green{background:var(--green)}.legend i.red{background:var(--red)}.legend i.amber{background:var(--amber)}
@@ -104,29 +104,29 @@ button,select,input{font:inherit}button{cursor:pointer}
     <div><h1>BYGA Bot</h1><p>Trading Signal & Market Tracker</p></div>
   </div>
   <nav class="nav">
-    <button class="active"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></svg>Dashboard</button>
-    <button><svg viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-7z"/></svg>Signals</button>
-    <button><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>Trade History</button>
-    <button><svg viewBox="0 0 24 24"><path d="M4 19V9M9 19V5M14 19v-8M19 19V3"/></svg>Performance</button>
-    <button><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19 13 2 1-2 3-2-1a8 8 0 0 1-2 1l-.2 2h-3.6l-.2-2a8 8 0 0 1-2-1l-2 1-2-3 2-1a8 8 0 0 1 0-2l-2-1 2-3 2 1a8 8 0 0 1 2-1l.2-2h3.6l.2 2a8 8 0 0 1 2 1l2-1 2 3-2 1a8 8 0 0 1 0 2Z"/></svg>Settings</button>
+    <button class="active" type="button" data-nav="dashboard"><svg viewBox="0 0 24 24"><path d="M3 11 12 4l9 7"/><path d="M5 10v10h14V10M9 20v-6h6v6"/></svg>Dashboard</button>
+    <button type="button" data-nav="signals"><svg viewBox="0 0 24 24"><path d="m13 2-9 12h7l-1 8 10-13h-7z"/></svg>Signals</button>
+    <button type="button" data-nav="history"><svg viewBox="0 0 24 24"><path d="M5 4h14v16H5zM8 8h8M8 12h8M8 16h5"/></svg>Trade History</button>
+    <button type="button" data-nav="performance"><svg viewBox="0 0 24 24"><path d="M4 19V9M9 19V5M14 19v-8M19 19V3"/></svg>Performance</button>
+    <button type="button" data-nav="settings"><svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="m19 13 2 1-2 3-2-1a8 8 0 0 1-2 1l-.2 2h-3.6l-.2-2a8 8 0 0 1-2-1l-2 1-2-3 2-1a8 8 0 0 1 0-2l-2-1 2-3 2 1a8 8 0 0 1 2-1l.2-2h3.6l.2 2a8 8 0 0 1 2 1l2-1 2 3-2 1a8 8 0 0 1 0 2Z"/></svg>Settings</button>
   </nav>
   <div class="nav-sep"></div>
   <div class="side-title">Trading Pairs</div>
-  <div class="pairs">
-    <div class="pair"><div class="pair-main"><div class="coin">BTC</div><div><strong>BTCUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
-    <div class="pair"><div class="pair-main"><div class="coin gold">Au</div><div><strong>GOLDUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
-    <div class="pair"><div class="pair-main"><div class="coin eth">ETH</div><div><strong>ETHUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
+  <div class="pairs" id="sidebarPairs">
+    <div class="pair" data-symbol="BTCUSDT"><div class="pair-main"><div class="coin">BTC</div><div><strong>BTCUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
+    <div class="pair" data-symbol="GOLDUSDT"><div class="pair-main"><div class="coin gold">Au</div><div><strong>GOLDUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
+    <div class="pair" data-symbol="ETHUSDT"><div class="pair-main"><div class="coin eth">ETH</div><div><strong>ETHUSDT</strong><small>M5  /  M15</small></div></div><i class="live-dot"></i></div>
   </div>
   <div class="bot"><div class="bot-head"><div class="bot-icon" aria-hidden="true">B</div><div><b>BYGA Bot</b><div class="running">RUNNING</div></div></div><div class="checks"><span>Market Data</span><span>Signal Engine</span><span>Risk Management</span><span>Notification (Discord)</span></div><button class="view" id="runNowBtn" style="margin-top:12px;height:34px;font-size:11px">Run Now</button><div class="kpi-sub" id="runStatus" style="margin-top:6px;min-height:12px"></div></div>
 </aside>
 <main class="main">
 <header class="topbar">
-  <div class="markets">
-    <div class="market"><div class="coin">BTC</div><div><strong>BTCUSDT</strong><small>Binance Futures</small></div><div class="tf"><button class="active">M5</button><button>M15</button></div></div>
-    <div class="market"><div class="coin gold">Au</div><div><strong>GOLDUSDT</strong><small>Market Data</small></div><div class="tf"><button class="active">M5</button><button>M15</button></div></div>
-    <div class="market"><div class="coin eth">ETH</div><div><strong>ETHUSDT</strong><small>Market Data</small></div><div class="tf"><button class="active">M5</button><button>M15</button></div></div>
+  <div class="markets" id="topMarkets">
+    <div class="market" data-symbol="BTCUSDT"><div class="coin">BTC</div><div><strong>BTCUSDT</strong><small>Binance Futures</small></div><div class="tf"><button class="active" data-tf="5m">M5</button><button data-tf="15m">M15</button></div></div>
+    <div class="market" data-symbol="GOLDUSDT"><div class="coin gold">Au</div><div><strong>GOLDUSDT</strong><small>Market Data</small></div><div class="tf"><button class="active" data-tf="5m">M5</button><button data-tf="15m">M15</button></div></div>
+    <div class="market" data-symbol="ETHUSDT"><div class="coin eth">ETH</div><div><strong>ETHUSDT</strong><small>Market Data</small></div><div class="tf"><button class="active" data-tf="5m">M5</button><button data-tf="15m">M15</button></div></div>
   </div>
-  <div class="top-right"><span class="live"><i class="live-dot"></i> Live Market</span><span id="clock"> - </span><button class="gear">Settings</button></div>
+  <div class="top-right"><span class="live"><i class="live-dot"></i> Live Market</span><span id="clock"> - </span><button class="gear" id="gearBtn" type="button">Settings</button></div>
 </header>
 
 <section class="kpis">
@@ -142,7 +142,7 @@ button,select,input{font:inherit}button{cursor:pointer}
   <article class="panel chart-panel">
     <div class="panel-head">
       <div><div class="panel-title">BTCUSDT Futures  /  <span id="chartTfTitle">5</span>  /  BINANCE</div><div class="panel-sub" id="ohlc">Loading market data...</div></div>
-      <div class="controls"><button class="active">5m</button><button>15m</button><button>1h</button><select id="chartSymbol"><option>BTCUSDT</option><option>GOLDUSDT</option><option>ETHUSDT</option></select><select id="chartTf"><option value="5m" selected>M5</option><option value="15m">M15</option></select></div>
+      <div class="controls"><button class="active" data-tf="5m">5m</button><button data-tf="15m">15m</button><button data-tf="1h">1h</button><select id="chartSymbol"><option>BTCUSDT</option><option>GOLDUSDT</option><option>ETHUSDT</option></select><select id="chartTf"><option value="5m" selected>M5</option><option value="15m">M15</option></select></div>
     </div>
     <div id="chartContainer"></div>
     <div class="chart-foot"><span class="legend"><i></i> Price</span><span class="legend"><i class="green"></i> BUY</span><span class="legend"><i class="red"></i> SELL</span><span class="legend"><i class="amber"></i> Signal marker</span><span id="chartStatus">Loading...</span></div>
@@ -321,14 +321,75 @@ async function loadPerformance(){
 }
 $("period").onchange=loadPerformance;
 $("viewSignal").onclick=()=>{ const el=$("tbody"); if(el) el.closest(".panel")?.scrollIntoView({behavior:"smooth",block:"start"}); };
-document.querySelectorAll(".mobile-nav button").forEach(btn=>btn.addEventListener("click",()=>{
-  document.querySelectorAll(".mobile-nav button").forEach(x=>x.classList.remove("active")); btn.classList.add("active");
-  const target=btn.dataset.nav;
-  if(target==="signals") $("tbody")?.closest(".panel")?.scrollIntoView({behavior:"smooth",block:"start"});
-  else if(target==="history") $("perfValue")?.closest(".panel")?.scrollIntoView({behavior:"smooth",block:"start"});
-  else if(target==="settings") $("notifications")?.closest(".panel")?.scrollIntoView({behavior:"smooth",block:"start"});
-  else window.scrollTo({top:0,behavior:"smooth"});
+
+// ---- Navigasi sidebar & mobile-nav: scroll ke panel terkait + set tombol aktif ----
+function scrollToPanel(el){ el?.scrollIntoView({behavior:"smooth",block:"start"}); }
+const NAV_TARGETS={
+ dashboard:()=>window.scrollTo({top:0,behavior:"smooth"}),
+ signals:()=>scrollToPanel($("tbody")?.closest(".panel")),
+ history:()=>scrollToPanel(document.querySelector(".chart-panel")),
+ performance:()=>scrollToPanel($("perfValue")?.closest(".panel")),
+ settings:()=>openSettings(),
+};
+function activateNav(group,btn){
+ document.querySelectorAll(group).forEach(x=>x.classList.remove("active"));
+ btn.classList.add("active");
+}
+document.querySelectorAll(".sidebar .nav button[data-nav]").forEach(btn=>btn.addEventListener("click",()=>{
+ activateNav(".sidebar .nav button",btn);
+ const fn=NAV_TARGETS[btn.dataset.nav];
+ if(fn)fn();
 }));
+document.querySelectorAll(".mobile-nav button[data-nav]").forEach(btn=>btn.addEventListener("click",()=>{
+ activateNav(".mobile-nav button",btn);
+ const fn=NAV_TARGETS[btn.dataset.nav];
+ if(fn)fn();
+}));
+
+// ---- Settings: kelola Run Key (x-run-key) yang dipakai tombol "Run Now" ----
+function openSettings(){
+ const current=localStorage.getItem("tvtm_run_key")||"";
+ const val=prompt("Run Key (x-run-key) untuk tombol Run Now.\nKosongkan lalu OK untuk menghapus.",current);
+ if(val===null)return;
+ if(val.trim()){ localStorage.setItem("tvtm_run_key",val.trim()); toast("Run key tersimpan.",true); }
+ else{ localStorage.removeItem("tvtm_run_key"); toast("Run key dihapus.",true); }
+}
+$("gearBtn").onclick=openSettings;
+
+// ---- Trading pair sidebar & market topbar: klik untuk ganti simbol chart ----
+function setActiveMarket(symbol){
+ document.querySelectorAll(".sidebar .pair").forEach(el=>el.classList.toggle("active-pair",el.dataset.symbol===symbol));
+ document.querySelectorAll(".market[data-symbol]").forEach(el=>el.classList.toggle("active-market",el.dataset.symbol===symbol));
+}
+document.querySelectorAll(".sidebar .pair[data-symbol]").forEach(el=>el.addEventListener("click",()=>{
+ $("chartSymbol").value=el.dataset.symbol;
+ setActiveMarket(el.dataset.symbol);
+ scrollToPanel(document.querySelector(".chart-panel"));
+ loadChart();
+}));
+document.querySelectorAll(".market[data-symbol]").forEach(el=>el.addEventListener("click",(ev)=>{
+ if(ev.target.closest(".tf"))return;
+ $("chartSymbol").value=el.dataset.symbol;
+ setActiveMarket(el.dataset.symbol);
+ loadChart();
+}));
+document.querySelectorAll(".market .tf button[data-tf]").forEach(btn=>btn.addEventListener("click",(ev)=>{
+ ev.stopPropagation();
+ const marketEl=btn.closest(".market");
+ marketEl.querySelectorAll(".tf button").forEach(b=>b.classList.remove("active"));
+ btn.classList.add("active");
+ $("chartSymbol").value=marketEl.dataset.symbol;
+ $("chartTf").value=btn.dataset.tf==="1h"?"15m":btn.dataset.tf;
+ setActiveMarket(marketEl.dataset.symbol);
+ loadChart();
+}));
+document.querySelectorAll(".chart-panel .controls button[data-tf]").forEach(btn=>btn.addEventListener("click",()=>{
+ document.querySelectorAll(".chart-panel .controls button[data-tf]").forEach(b=>b.classList.remove("active"));
+ btn.classList.add("active");
+ $("chartTf").value=btn.dataset.tf==="1h"?"15m":btn.dataset.tf;
+ loadChart();
+}));
+
 async function load(){
  try{
   const [data,statsData]=await Promise.all([getSignals(),getStats().catch(()=>null)]);
@@ -352,6 +413,7 @@ function initChart(){
 async function loadChart(){
  if(!series)return;
  const symbol=$("chartSymbol").value,tf=$("chartTf").value;
+ setActiveMarket(symbol);
  $("chartStatus").textContent="Loading...";
  try{
   const r=await fetch("/api/candles?symbol="+encodeURIComponent(symbol)+"&timeframe="+tf+"&limit=260");const d=await r.json();if(!r.ok)throw new Error(d.error||r.status);
