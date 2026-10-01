@@ -37,3 +37,44 @@ jobs:
           CF_D1_DATABASE_ID: ${{ secrets.CF_D1_DATABASE_ID }}
           CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
         run: python -m src.main
+
+  notify-failure:
+    name: Notify workflow failure
+    needs: run-engine
+    if: ${{ failure() }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Send failure alert to Discord
+        env:
+          DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          RUN_URL: https://github.com/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          python - <<'PY'
+          import json
+          import os
+          import urllib.request
+
+          url = os.environ["DISCORD_WEBHOOK_URL"]
+          run_url = os.environ["RUN_URL"]
+          payload = {
+              "username": "TV Alert Relay",
+              "embeds": [{
+                  "title": "TVTM Workflow Failed",
+                  "description": "Check Trading Signal workflow gagal. Periksa GitHub Actions.",
+                  "fields": [
+                      {"name": "Repository", "value": os.environ["GITHUB_REPOSITORY"], "inline": True},
+                      {"name": "Run", "value": f"[Open GitHub Actions]({run_url})", "inline": False},
+                  ]
+              }]
+          }
+          request = urllib.request.Request(
+              url,
+              data=json.dumps(payload).encode("utf-8"),
+              headers={"Content-Type": "application/json"},
+              method="POST",
+          )
+          with urllib.request.urlopen(request, timeout=10) as response:
+              if response.status >= 300:
+                  raise RuntimeError(f"Discord returned HTTP {response.status}")
+          PY
