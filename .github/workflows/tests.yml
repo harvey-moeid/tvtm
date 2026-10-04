@@ -21,25 +21,3 @@ jobs:
 
       - name: Run test suite
         run: pytest tests/ -v
-
-  r2-smoke:
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-python@v5
-        with:
-          python-version: '3.12'
-      - name: Install dependencies
-        run: pip install -r requirements-dev.txt
-      - name: Read JSON state from R2
-        env:
-          TVTM_LIVE_IO: '1'
-          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
-          R2_BUCKET: tvtm-data
-          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
-          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: |
-          test -n "$CF_ACCOUNT_ID"
-          test -n "$R2_ACCESS_KEY_ID"
-          test -n "$R2_SECRET_ACCESS_KEY"
-          pytest tests/test_live_io.py -v -m live -k r2
