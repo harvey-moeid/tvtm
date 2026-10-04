@@ -1,12 +1,28 @@
-export async function onRequest(context) {
-  const { env, request }=context;
-  const headers={"Access-Control-Allow-Origin":"*","Access-Control-Allow-Methods":"GET,OPTIONS","Content-Type":"application/json"};
-  if(request.method==="OPTIONS")return new Response(null,{status:204,headers});
-  if(!env.DB)return new Response(JSON.stringify({error:"D1 binding 'DB' tidak ditemukan."}),{status:500,headers});
-  const days=Math.min(Math.max(Number(new URL(request.url).searchParams.get("days")||7),1),30);
-  try{
-    const rows=await env.DB.prepare("SELECT substr(exit_time,1,10) day, COUNT(*) trades, SUM(CASE WHEN pnl_r>0 THEN 1 ELSE 0 END) wins, COALESCE(SUM(pnl_pct),0) pnl_pct, COALESCE(SUM(pnl_r),0) pnl_r FROM trades WHERE status='CLOSED' AND exit_time >= datetime('now', ?) GROUP BY substr(exit_time,1,10) ORDER BY day ASC").bind("-"+days+" days").all();
-    const pairs=await env.DB.prepare("SELECT symbol,COUNT(*) trades,COALESCE(SUM(pnl_pct),0) pnl_pct,COALESCE(SUM(pnl_r),0) pnl_r,SUM(CASE WHEN pnl_r>0 THEN 1 ELSE 0 END) wins FROM trades WHERE status='CLOSED' AND exit_time >= datetime('now', ?) GROUP BY symbol ORDER BY pnl_r DESC").bind("-"+days+" days").all();
-    return new Response(JSON.stringify({days,by_day:rows.results||[],by_symbol:pairs.results||[]}),{headers});
-  }catch(e){return new Response(JSON.stringify({error:String(e)}),{status:500,headers});}
+import { headers, reply, readState, number } from "../_lib/state.js";
+
+export async function onRequest({ env, request }) {
+  if (request.method === "OPTIONS") return new Response(null, { status: 204, headers });
+  const days = Math.min(Math.max(Number(new URL(request.url).searchParams.get("days") || 7), 1), 30);
+  try {
+    const { trades } = await readState(env);
+    const cutoff = Date.now() - days * 86400000;
+    const closed = trades.filter((t) => t.status === "CLOSED" && Date.parse(t.exit_time) >= cutoff);
+    const byDay = new Map(), bySymbol = new Map();
+    for (const t of closed) {
+      const day = t.exit_time.slice(0, 10);
+      for (const [map, key, name] of [[byDay, day, "day"], [bySymbol, t.symbol, "symbol"]]) {
+        if (!map.has(key)) map.set(key, { [name]: key, trades: 0, wins: 0, pnl_pct: 0, pnl_r: 0 });
+        const row = map.get(key);
+        row.trades++;
+        row.wins += number(t.pnl_r) > 0 ? 1 : 0;
+        row.pnl_pct += number(t.pnl_pct);
+        row.pnl_r += number(t.pnl_r);
+      }
+    }
+    return reply({
+      days,
+      by_day: [...byDay.values()].sort((a, b) => a.day.localeCompare(b.day)),
+      by_symbol: [...bySymbol.values()].sort((a, b) => b.pnl_r - a.pnl_r),
+    });
+  } catch (e) { return reply({ error: String(e) }, 500); }
 }

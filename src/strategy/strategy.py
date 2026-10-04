@@ -5,7 +5,6 @@ from typing import Optional
 
 from src.market.fetch_candles import fetch_closed_candles
 from src.models import Signal
-from src.storage.d1_client import D1Client
 from src.storage.signal_repository import (
     create_trade,
     mark_notified,
@@ -25,7 +24,7 @@ class MarketDataUnavailable(RuntimeError):
 def evaluate_market(
     market_cfg,
     strategy_cfg,
-    d1,
+    store,
     webhook_url=None,
 ) -> Optional[Signal]:
     symbol = market_cfg["symbol"]
@@ -52,7 +51,7 @@ def evaluate_market(
     if not m5:
         raise MarketDataUnavailable("M5 candles tidak tersedia")
 
-    tracking = track_open_trades(d1, {symbol: m5})
+    tracking = track_open_trades(store, {symbol: m5})
     if webhook_url and tracking["closed_trades"]:
         from src.notify.notify_discord import send_discord_trade_closed
 
@@ -81,23 +80,23 @@ def evaluate_market(
         m15,
         m5,
         strategy_cfg,
-        d1,
+        store,
     )
     if signal is None:
         return None
 
-    if not try_reserve(d1, signal):
+    if not try_reserve(store, signal):
         return None
 
-    create_trade(d1, signal)
+    create_trade(store, signal)
     return signal
 
 
-def dispatch_signal(webhook_url, d1, signal):
+def dispatch_signal(webhook_url, store, signal):
     from src.notify.notify_discord import send_discord_signal
 
     ok = send_discord_signal(webhook_url, signal)
     if ok:
-        mark_notified(d1, signal.signal_key)
+        mark_notified(store, signal.signal_key)
 
     return ok

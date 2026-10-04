@@ -43,7 +43,6 @@ from src.models import (
 )
 from src.patterns.engulfing import detect_bearish_engulfing, detect_bullish_engulfing
 from src.patterns.pin_bar import detect_bearish_pin_bar, detect_bullish_pin_bar
-from src.storage.d1_client import D1Client
 from src.strategy.cooldown import build_cooldown_key, is_in_cooldown, is_rate_limited
 from src.strategy.liquidity import detect_liquidity_sweep
 from src.strategy.risk import compute_risk_levels
@@ -67,7 +66,7 @@ def evaluate_m5_trigger(
     m15_candles: List[Candle],
     m5_candles: List[Candle],
     cfg: dict,
-    d1: D1Client,
+    store,
 ) -> Optional[Signal]:
     if m15_bias == Bias.NEUTRAL:
         return None
@@ -140,9 +139,9 @@ def evaluate_m5_trigger(
         structure_event_candle_time=m15_structure.event_candle_time,
         direction=direction.value,
     )
-    if is_in_cooldown(d1, cooldown_key):
+    if is_in_cooldown(store, cooldown_key):
         return None
-    if is_rate_limited(d1, symbol, "5m", direction.value, cfg.get("cooldownMinutes", 0)):
+    if is_rate_limited(store, symbol, "5m", direction.value, cfg.get("cooldownMinutes", 0)):
         return None
 
     # --- ICT full suite: hitung Liquidity / FVG / Order Block / Volume

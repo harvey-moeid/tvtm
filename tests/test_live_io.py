@@ -6,7 +6,7 @@ import pytest
 
 from src.market.exchange_adapter import get_adapter
 from src.notify.notify_discord import _post
-from src.storage.d1_client import D1Client
+from src.storage.r2_store import connect_from_env
 
 
 def _required_env(*names: str) -> dict[str, str] | None:
@@ -45,25 +45,13 @@ def test_okx_gold_live():
 
 
 @pytest.mark.live
-def test_d1_query_live():
+def test_r2_state_live():
     if os.getenv("TVTM_LIVE_IO") != "1":
         pytest.skip("TVTM_LIVE_IO != 1")
-
-    env = _required_env(
-        "CF_ACCOUNT_ID",
-        "CF_D1_DATABASE_ID",
-        "CF_API_TOKEN",
-    )
-    if env is None:
-        pytest.skip("Cloudflare D1 secrets belum tersedia")
-
-    client = D1Client(
-        env["CF_ACCOUNT_ID"],
-        env["CF_D1_DATABASE_ID"],
-        env["CF_API_TOKEN"],
-    )
-    row = client.query_one("SELECT 1 AS healthcheck")
-    assert row == {"healthcheck": 1}
+    if _required_env("CF_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY") is None:
+        pytest.skip("Cloudflare R2 secrets belum tersedia")
+    store = connect_from_env()
+    assert store.state["version"] == 1
 
 
 @pytest.mark.live
