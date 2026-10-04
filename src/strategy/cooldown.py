@@ -26,9 +26,6 @@ Dua lapis proteksi independen:
 
 from __future__ import annotations
 
-from src.storage.d1_client import D1Client
-
-
 def build_cooldown_key(symbol: str, timeframe: str, zone_type: str, zone_level: float,
                         structure_event: str, structure_event_candle_time, direction: str) -> str:
     return (
@@ -37,26 +34,13 @@ def build_cooldown_key(symbol: str, timeframe: str, zone_type: str, zone_level: 
     )
 
 
-def is_in_cooldown(d1: D1Client, cooldown_key: str) -> bool:
-    row = d1.query_one(
-        "SELECT id FROM signals WHERE cooldown_key = ? AND notified = 1 LIMIT 1",
-        [cooldown_key],
-    )
-    return row is not None
+def is_in_cooldown(store, cooldown_key: str) -> bool:
+    return store.has_notified_cooldown(cooldown_key)
 
 
 def is_rate_limited(
-    d1: D1Client, symbol: str, timeframe: str, direction: str, cooldown_minutes: int
+    store, symbol: str, timeframe: str, direction: str, cooldown_minutes: int
 ) -> bool:
     if cooldown_minutes is None or cooldown_minutes <= 0:
         return False
-    row = d1.query_one(
-        """
-        SELECT id FROM signals
-        WHERE symbol = ? AND timeframe = ? AND direction = ? AND notified = 1
-          AND created_at >= strftime('%Y-%m-%dT%H:%M:%fZ', 'now', ?)
-        LIMIT 1
-        """,
-        [symbol, timeframe, direction, f"-{int(cooldown_minutes)} minutes"],
-    )
-    return row is not None
+    return store.was_notified_recently(symbol, timeframe, direction, int(cooldown_minutes))

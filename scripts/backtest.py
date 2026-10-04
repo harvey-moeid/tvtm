@@ -1,6 +1,6 @@
 """
 CLI backtest: replay histori candle OKX lewat strategi live (M15 bias -> M5
-trigger -> risk management -> scorer) TANPA menyentuh D1/Discord asli, buat
+trigger -> risk management -> scorer) TANPA menyentuh R2/Discord asli, buat
 validasi awal (win-rate/expectancy/drawdown) sebelum parameter (ATR
 multiplier, R:R minimum, bobot scorer, dll) dipakai untuk keputusan trading
 riil - lihat CHECKLIST.md.
@@ -23,7 +23,7 @@ limit publik, skrip ini sudah kasih jeda antar halaman pagination.
 
 Hasil backtest (win-rate, expectancy, drawdown) adalah ESTIMASI berbasis
 histori - bukan jaminan performa ke depan, dan tidak memperhitungkan slippage,
-funding rate perpetual, atau downtime API OKX/D1/Discord.
+funding rate perpetual, atau downtime API OKX/R2/Discord.
 """
 
 from __future__ import annotations

@@ -1,6 +1,6 @@
 """
 Pure PnL / R-multiple math - dipakai bersama oleh:
-  - src/strategy/tracker.py   (live position tracking, hasil ditulis ke D1)
+  - src/strategy/tracker.py   (live position tracking, hasil ditulis ke R2)
   - src/backtest/simulator.py (walk-forward backtest, in-memory)
 
 Dipisah jadi modul sendiri (sebelumnya duplikat sebagai fungsi private di

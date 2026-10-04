@@ -2,7 +2,7 @@
 Walk-forward backtest simulator.
 
 Mengeksekusi ULANG persis alur produksi (compute_m15_bias -> evaluate_m5_trigger)
-candle demi candle secara historis, TANPA menyentuh D1/Discord asli:
+candle demi candle secara historis, TANPA menyentuh R2/Discord asli:
 cooldown & rate-limit disimulasikan lewat InMemorySignalStore dengan jam
 SIMULASI (bukan wall-clock - lihat docstring src/backtest/store.py), dan
 setiap sinyal yang lolos langsung dianggap "notified" seperti di produksi.

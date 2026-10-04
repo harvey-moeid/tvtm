@@ -6,7 +6,7 @@ from src.config_loader import load_strategy_config
 from src.models import Bias, StructureEvent, StructureResult, StructureTrend, SwingPoint
 from src.strategy.cooldown import build_cooldown_key
 from src.strategy.trigger_m5 import evaluate_m5_trigger
-from tests.conftest import FakeD1Client, make_candle, seed_notified_row
+from tests.conftest import FakeJSONStore, make_candle, seed_notified_row
 
 M15_INTERVAL_MS = 15 * 60 * 1000
 
@@ -45,7 +45,7 @@ def _base_cfg() -> dict:
 
 
 def test_generates_buy_signal_with_full_risk_management():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     signal = evaluate_m5_trigger(
         market_id="BTCUSDT_FUTURES",
         symbol="BTCUSDT",
@@ -55,7 +55,7 @@ def test_generates_buy_signal_with_full_risk_management():
         m15_candles=_m15_candles(),
         m5_candles=_m5_candles_with_bullish_retest(),
         cfg=_base_cfg(),
-        d1=d1,
+        store=store,
     )
 
     assert signal is not None
@@ -73,18 +73,18 @@ def test_generates_buy_signal_with_full_risk_management():
 
 
 def test_no_signal_when_bias_neutral():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     signal = evaluate_m5_trigger(
         market_id="BTCUSDT_FUTURES", symbol="BTCUSDT", market="futures",
         m15_bias=Bias.NEUTRAL, m15_structure=_m15_structure(),
         m15_candles=_m15_candles(), m5_candles=_m5_candles_with_bullish_retest(),
-        cfg=_base_cfg(), d1=d1,
+        cfg=_base_cfg(), store=store,
     )
     assert signal is None
 
 
 def test_no_signal_when_zone_not_touched():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     m5_candles = _m5_candles_with_bullish_retest()
     # geser candle terakhir jauh dari zona (tidak retest sama sekali)
     far_curr = make_candle(14, 60040, 60055, 59960, 60050)
@@ -93,33 +93,33 @@ def test_no_signal_when_zone_not_touched():
         market_id="BTCUSDT_FUTURES", symbol="BTCUSDT", market="futures",
         m15_bias=Bias.BULLISH, m15_structure=_m15_structure(),
         m15_candles=_m15_candles(), m5_candles=m5_candles,
-        cfg=_base_cfg(), d1=d1,
+        cfg=_base_cfg(), store=store,
     )
     assert signal is None
 
 
 def test_no_signal_when_risk_reward_below_minimum():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     cfg = copy.deepcopy(_base_cfg())
     cfg["minRiskRewardRatio"] = 10.0  # naikkan syarat RR jauh di atas target 1.5
     signal = evaluate_m5_trigger(
         market_id="BTCUSDT_FUTURES", symbol="BTCUSDT", market="futures",
         m15_bias=Bias.BULLISH, m15_structure=_m15_structure(),
         m15_candles=_m15_candles(), m5_candles=_m5_candles_with_bullish_retest(),
-        cfg=cfg, d1=d1,
+        cfg=cfg, store=store,
     )
     assert signal is None  # price-action valid, tapi risk:reward tidak layak -> dibatalkan
 
 
 def test_risk_management_can_be_disabled_for_backward_compatibility():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     cfg = copy.deepcopy(_base_cfg())
     cfg["requireRiskManagement"] = False
     signal = evaluate_m5_trigger(
         market_id="BTCUSDT_FUTURES", symbol="BTCUSDT", market="futures",
         m15_bias=Bias.BULLISH, m15_structure=_m15_structure(),
         m15_candles=_m15_candles(), m5_candles=_m5_candles_with_bullish_retest(),
-        cfg=cfg, d1=d1,
+        cfg=cfg, store=store,
     )
     assert signal is not None
     assert signal.stop_loss is None
@@ -127,7 +127,7 @@ def test_risk_management_can_be_disabled_for_backward_compatibility():
 
 
 def test_cooldown_key_blocks_identical_setup_already_notified():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     structure = _m15_structure()
     expected_key = build_cooldown_key(
         "BTCUSDT", "5m", "support", 50000.0, "BOS_BULLISH",
@@ -135,24 +135,24 @@ def test_cooldown_key_blocks_identical_setup_already_notified():
     )
     # symbol sengaja beda supaya HANYA layer cooldown_key yang teruji,
     # bukan rate-limit waktu (yang dicek berdasar symbol+timeframe+direction).
-    seed_notified_row(d1, cooldown_key=expected_key, symbol="OTHER_SYMBOL")
+    seed_notified_row(store, cooldown_key=expected_key, symbol="OTHER_SYMBOL")
 
     signal = evaluate_m5_trigger(
         market_id="BTCUSDT_FUTURES", symbol="BTCUSDT", market="futures",
         m15_bias=Bias.BULLISH, m15_structure=structure,
         m15_candles=_m15_candles(), m5_candles=_m5_candles_with_bullish_retest(),
-        cfg=_base_cfg(), d1=d1,
+        cfg=_base_cfg(), store=store,
     )
     assert signal is None
 
 
 def test_rate_limit_blocks_new_setup_too_soon_after_notified_signal():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     # signal SEBELUMNYA untuk symbol+timeframe+direction yang sama, tapi
     # cooldown_key BEDA (mis. zona/event berbeda) -> cooldown_key layer lolos,
     # tapi rate-limit waktu (default cooldownMinutes=60) harus tetap blokir.
     seed_notified_row(
-        d1, cooldown_key="setup_lain_sama_sekali", symbol="BTCUSDT",
+        store, cooldown_key="setup_lain_sama_sekali", symbol="BTCUSDT",
         timeframe="5m", direction="BUY",
     )
 
@@ -160,15 +160,15 @@ def test_rate_limit_blocks_new_setup_too_soon_after_notified_signal():
         market_id="BTCUSDT_FUTURES", symbol="BTCUSDT", market="futures",
         m15_bias=Bias.BULLISH, m15_structure=_m15_structure(),
         m15_candles=_m15_candles(), m5_candles=_m5_candles_with_bullish_retest(),
-        cfg=_base_cfg(), d1=d1,
+        cfg=_base_cfg(), store=store,
     )
     assert signal is None
 
 
 def test_rate_limit_disabled_still_allows_signal_when_cooldown_minutes_zero():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     seed_notified_row(
-        d1, cooldown_key="setup_lain_sama_sekali", symbol="BTCUSDT",
+        store, cooldown_key="setup_lain_sama_sekali", symbol="BTCUSDT",
         timeframe="5m", direction="BUY",
     )
     cfg = copy.deepcopy(_base_cfg())
@@ -178,13 +178,13 @@ def test_rate_limit_disabled_still_allows_signal_when_cooldown_minutes_zero():
         market_id="BTCUSDT_FUTURES", symbol="BTCUSDT", market="futures",
         m15_bias=Bias.BULLISH, m15_structure=_m15_structure(),
         m15_candles=_m15_candles(), m5_candles=_m5_candles_with_bullish_retest(),
-        cfg=cfg, d1=d1,
+        cfg=cfg, store=store,
     )
     assert signal is not None
 
 
 def test_volume_filter_blocks_low_conviction_retest_when_enabled():
-    d1 = FakeD1Client()
+    store = FakeJSONStore()
     cfg = copy.deepcopy(_base_cfg())
     cfg["requireVolumeConfirmation"] = True
     cfg["volumeLookbackCandles"] = 13
@@ -199,6 +199,6 @@ def test_volume_filter_blocks_low_conviction_retest_when_enabled():
         market_id="BTCUSDT_FUTURES", symbol="BTCUSDT", market="futures",
         m15_bias=Bias.BULLISH, m15_structure=_m15_structure(),
         m15_candles=_m15_candles(), m5_candles=m5_candles,
-        cfg=cfg, d1=d1,
+        cfg=cfg, store=store,
     )
     assert signal is None

@@ -18,7 +18,7 @@ CFG = {"minHistoricalCandles": 200, "swingLookback": 2}
 def test_m15_kosong_melempar_market_data_unavailable(monkeypatch):
     monkeypatch.setattr(strategy, "fetch_closed_candles", lambda *a, **k: None)
     with pytest.raises(MarketDataUnavailable):
-        evaluate_market(MARKET, CFG, d1=None)
+        evaluate_market(MARKET, CFG, store=None)
 
 
 def test_m5_kosong_melempar_market_data_unavailable(monkeypatch):
@@ -30,5 +30,5 @@ def test_m5_kosong_melempar_market_data_unavailable(monkeypatch):
 
     monkeypatch.setattr(strategy, "fetch_closed_candles", fake_fetch)
     with pytest.raises(MarketDataUnavailable):
-        evaluate_market(MARKET, CFG, d1=None)
+        evaluate_market(MARKET, CFG, store=None)
     assert calls == ["15m", "5m"]

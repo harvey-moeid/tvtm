@@ -16,10 +16,10 @@ Status: [ ] belum, [x] selesai, [~] sedang dikerjakan.
 - [x] "Market Structure" component now checks a *fresh* M15 BOS/CHoCH event, not just trend direction — previously it was structurally guaranteed true (direction is only set after m15_bias already matches trend), so it granted a free 2.5/10 that never discriminated
 - [ ] Validate component weights via historical backtest (tooling ready — see §6, not yet run against real data)
 
-## 3. Storage (D1)
-- [x] signals: confidence_pct, score, checklist_json
-- [x] trades table for TP1/TP2/SL lifecycle and PnL/PnL-R
-- [x] scripts/migrate_d1.py idempotent migration
+## 3. Storage (R2 JSON)
+- [x] signals: confidence_pct, score, checklist_json in state.json
+- [x] trades JSON for TP1/TP2/SL lifecycle and PnL/PnL-R
+- [x] R2 bucket tvtm-data; state.json starts empty
 
 ## 4. Tracker (posisi berjalan)
 - [x] src/strategy/tracker.py detects TP1/TP2/SL from closed OHLC candles
@@ -50,4 +50,4 @@ Status: [ ] belum, [x] selesai, [~] sedang dikerjakan.
 - Scorer weights are still design defaults, not empirically validated — the backtest tooling to validate them now exists (§6) but has not yet been run against real market data.
 - Tracker resolves a candle that touches both SL and target as SL first because OHLC does not reveal intrabar order. The backtest simulator makes the exact same conservative assumption for consistency.
 - PnL is based on the full position exit; TP1 is a milestone until partial-close sizing is modeled.
-- Backtest results are historical estimates only — they do not account for slippage, perpetual funding rate, or OKX/D1/Discord downtime, and past performance does not guarantee future results.
+- Backtest results are historical estimates only — they do not account for slippage, perpetual funding rate, or OKX/R2/Discord downtime, and past performance does not guarantee future results.

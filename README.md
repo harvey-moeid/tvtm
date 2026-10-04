@@ -1,49 +1,42 @@
 # tv-alert-relay (Python)
 
-Implementasi PRD `PRD_Notifikasi_Trading_Cron_v4.md` - full Python, dijalankan sebagai
-GitHub Actions cron, tanpa Cloudflare Worker (D1 diakses langsung via REST API resmi Cloudflare).
+Implementasi PRD `PRD_Notifikasi_Trading_Cron_v4.md` - Python engine
+di GitHub Actions, JSON di Cloudflare R2, dashboard di Cloudflare Pages.
 
 ## Arsitektur
 
-```
-GitHub Actions (cron */5 menit)
-        |
-        v
-   src/main.py
-        |
-        +- fetch M15 + M5 candle (closed only)              -> src/market/
-        +- hitung bias M15 (structure + swing + BOS/CHoCH)   -> src/structure/, src/strategy/bias_m15.py
-        +- evaluasi trigger M5 (zona + retest + pattern +
-           anti-noise + volume + RISK MANAGEMENT)            -> src/strategy/trigger_m5.py
-        +- idempotency + cooldown + rate-limit via D1         -> src/storage/, src/strategy/cooldown.py
-        +- kirim Discord webhook (+ SL/TP/R:R)                -> src/notify/
-```
+GitHub Actions menjalankan engine setiap 5 menit, mengambil candle OKX,
+menganalisis M15/M5, menyimpan sinyal dan trade dalam JSON di Cloudflare R2,
+lalu mengirim notifikasi Discord. Dashboard Cloudflare Pages membaca objek
+`state.json` melalui binding R2 `DATA`. Bucket `tvtm-data` bersifat privat.
 
-**Kenapa tanpa Worker?** Cloudflare D1 punya HTTP Query API resmi
-(`POST /accounts/{id}/d1/database/{id}/query`) yang bisa dipanggil langsung pakai
-API Token - jadi tidak perlu lapisan Cloudflare Worker terpisah untuk logging.
-Seluruh stack aplikasi murni Python.
+Satu objek JSON menyimpan `signals`, `trades`, dan ID berikutnya. Workflow
+`check-signal.yml` mempunyai concurrency group tunggal agar tidak ada dua
+writer yang menimpa state. Setiap perubahan penting diunggah sebelum efek
+berikutnya; sinyal pending dicoba lagi pada run berikutnya. Jangan jalankan
+writer lain pada objek yang sama di luar workflow tersebut.
 
-## Setup
+## Setup R2
 
-1. **Buat D1 database** di Cloudflare dashboard, catat `account_id` dan `database_id`.
-2. **Buat API Token** dengan permission `D1:Edit`.
-3. Jalankan sekali untuk membuat tabel (instalasi baru):
-   ```bash
-   pip install -r requirements.txt
-   export CF_ACCOUNT_ID=...
-   export CF_D1_DATABASE_ID=...
-   export CF_API_TOKEN=...
-   python scripts/setup_d1.py
-   ```
-   Kalau database sudah ada dari SEBELUM upgrade risk management ini, jalankan
-   migrasi (aman diulang, lihat bagian "Upgrade strategi inti" di bawah):
-   ```bash
-   python scripts/migrate_d1.py
-   ```
-4. Set GitHub Repository Secrets: `DISCORD_WEBHOOK_URL`, `CF_ACCOUNT_ID`,
-   `CF_D1_DATABASE_ID`, `CF_API_TOKEN`.
-5. Push repo ini -> workflow `.github/workflows/check-signal.yml` otomatis jalan tiap 5 menit.
+Bucket `tvtm-data` sudah dibuat; `state.json` dimulai kosong (format versi 1).
+Buat **R2 API token** dengan izin Object Read & Write untuk bucket ini di
+Cloudflare Dashboard → R2 → Manage R2 API tokens. Catat **Access Key ID** dan
+**Secret Access Key** yang ditampilkan saat pembuatan, lalu tambahkan ke
+GitHub repository secrets: `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`.
+Pertahankan `CF_ACCOUNT_ID` dan `DISCORD_WEBHOOK_URL` yang sudah dipakai.
+`R2_BUCKET=tvtm-data` sudah disetel di workflow.
+
+Deploy dashboard memakai `dashboard/wrangler.toml` dengan R2 binding `DATA`.
+Jika proyek Pages diatur melalui dashboard, pastikan binding `DATA` menunjuk
+ke bucket `tvtm-data` pada Production dan Preview. GitHub Actions deploy
+memakai secret `CF_API_TOKEN` dan `CF_ACCOUNT_ID` yang sudah ada; token deploy
+perlu izin untuk binding R2 pada Pages.
+
+Jalankan `Live I/O Smoke Test` dengan `test_r2=true`, lalu jalankan
+`Check Trading Signal` secara manual dan cek `/api/stats` pada dashboard.
+Jika kredensial R2 belum dipasang, cron akan gagal saat memuat `state.json`;
+file hilang atau rusak juga menyebabkan kegagalan eksplisit agar riwayat
+posisi tidak ter-reset diam-diam.
 
 ## Konfigurasi strategi
 
@@ -97,16 +90,15 @@ Ada 2 threshold terpisah, karena pin bar secara definisi butuh body KECIL:
 Nilai-nilai ini **belum di-lock** dan perlu tuning lewat backtest (lihat bagian
 "Backtest" di bawah - tooling-nya sudah tersedia).
 
-## Idempotency & Cooldown (§5 & §14 PRD)
+## Idempotency & Cooldown
 
-- `signal_key` = `symbol:market:timeframe:candle_time:direction`, UNIQUE di D1.
-  Insert dulu (checkpoint dedup) -> baru kirim Discord -> baru `UPDATE notified=1`.
-  Kalau proses mati di tengah, run berikutnya retry notify tanpa membuat row baru.
-- `cooldown_key` = `symbol:timeframe:zone_type:zone_level:structure_event:event_candle_time:direction`.
-  Menyertakan timestamp event struktur pembentuk zona, sehingga otomatis "kadaluarsa"
-  begitu ada BOS/CHoCH baru atau zona baru.
-- `cooldownMinutes` (§14) kini benar-benar aktif sebagai rate-limit tambahan berbasis
-  waktu murni per symbol+timeframe+direction (lihat bagian upgrade di bawah).
+- `signal_key` unik di daftar sinyal JSON. Reserve disimpan sebelum Discord,
+  kemudian `notified=1` disimpan setelah pengiriman berhasil.
+- Sinyal yang masih pending dicoba lagi sekali pada awal tiap run. Jika
+  Discord menerima pesan tetapi penyimpanan status gagal, retry dapat
+  mengirim ulang; semantik notifikasi adalah *at least once*.
+- `cooldown_key` memisahkan setup struktural, sementara `cooldownMinutes`
+  membatasi notifikasi per symbol, timeframe, dan arah.
 
 ---
 
@@ -177,19 +169,6 @@ beda), tetap ada jeda minimum antar notifikasi untuk symbol+timeframe+arah yang 
 mencegah spam saat market membentuk banyak BOS/CHoCH kecil berturut-turut dalam waktu
 singkat. Set `cooldownMinutes: 0` untuk mematikan layer ini.
 
-### Migrasi database untuk instalasi yang sudah ada
-
-Kolom baru (`stop_loss`, `take_profit_1/2`, `risk_reward_1/2`, `atr`,
-`zone_tolerance_pct_used`) perlu ditambahkan ke tabel `signals` yang sudah ada:
-
-```bash
-python scripts/migrate_d1.py
-```
-
-Aman dipanggil berkali-kali (idempotent, mengecek `PRAGMA table_info` dulu). **Jangan**
-jalankan `sql/migrations/0002_risk_management.sql` secara manual berulang - SQLite/D1
-tidak mendukung `ADD COLUMN IF NOT EXISTS` dan akan error di run kedua.
-
 ### Parameter baru di `strategy.json`
 
 | Parameter | Default | Fungsi |
@@ -215,7 +194,7 @@ bagian "Backtest" di bawah.
 
 `src/backtest/` berisi walk-forward simulator yang me-replay strategi live (bias M15 ->
 trigger M5 -> risk management -> scorer) candle demi candle di atas histori OKX,
-**tanpa menyentuh D1/Discord asli**, buat mengestimasi win-rate/expectancy/drawdown
+**tanpa menyentuh R2/Discord asli**, buat mengestimasi win-rate/expectancy/drawdown
 sebelum parameter dipakai untuk keputusan trading riil:
 
 ```bash
@@ -237,7 +216,7 @@ jalan live):
   tidak pernah diam-diam berbeda antara backtest dan live.
 - Cooldown/rate-limit disimulasikan lewat `src/backtest/store.py` (`InMemorySignalStore`)
   memakai **jam simulasi** yang di-advance manual tiap candle - BUKAN wall-clock seperti
-  SQL produksi (`strftime(..., 'now', ...)`), karena me-replay data berbulan-bulan lalu
+  JSON store produksi, karena me-replay data berbulan-bulan lalu
   dengan wall-clock asli akan membuat `cooldownMinutes` tidak pernah aktif sama sekali.
 
 Histori diambil lewat `src/market/history_fetch.py` (endpoint OKX `history-candles`,
@@ -253,14 +232,14 @@ langkah berikutnya sebelum parameter (ATR multiplier, R:R minimum, bobot scorer)
 untuk keputusan trading riil.
 
 Hasil backtest adalah **estimasi historis, bukan jaminan performa ke depan** - tidak
-memperhitungkan slippage, funding rate perpetual, atau downtime API OKX/D1/Discord.
+memperhitungkan slippage, funding rate perpetual, atau downtime API OKX/R2/Discord.
 
 ## Test suite
 
 Repo ini menyertakan unit + integration test (`tests/`) yang mengunci perilaku setiap
 modul murni (ATR, struktur, BOS/CHoCH, zona, pattern, risk management, volume filter,
 cooldown/rate-limit, idempotency, scorer, backtest engine) plus integration test
-end-to-end `evaluate_m5_trigger` pakai data candle sintetis dan D1 client palsu
+end-to-end `evaluate_m5_trigger` pakai data candle sintetis dan JSON store
 in-memory (tidak perlu jaringan). Jalankan:
 
 ```bash
@@ -268,7 +247,7 @@ pip install -r requirements-dev.txt
 pytest tests/ -v
 ```
 
-Modul I/O eksternal (`market/exchange_adapter.py`, `storage/d1_client.py`,
+Modul I/O eksternal (`market/exchange_adapter.py`, `storage/r2_store.py`,
 `notify/notify_discord.py`, `market/history_fetch.py`) sudah lolos syntax/import check
 tapi **belum pernah dites terhadap API asli** - disarankan jalankan `workflow_dispatch`
 manual sekali di GitHub Actions sebelum mengandalkannya penuh, dan pantau log run pertama.
