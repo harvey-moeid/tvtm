@@ -36,4 +36,4 @@ jobs:
           R2_BUCKET: tvtm-data
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
           R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
-        run: python scripts/bootstrap_github_state.py
+        run: python -m scripts.bootstrap_github_state
