@@ -2,17 +2,20 @@ name: Check Trading Signal
 
 on:
   schedule:
-    - cron: '2-59/5 * * * *'
+    - cron: '*/5 * * * *'
   workflow_dispatch: {}
 
 concurrency:
   group: tv-alert-relay-check-signal
   cancel-in-progress: false
 
+permissions:
+  contents: write
+
 jobs:
   run-engine:
     runs-on: ubuntu-latest
-    timeout-minutes: 4
+    timeout-minutes: 8
     steps:
       - uses: actions/checkout@v4
       - uses: actions/setup-python@v5
@@ -23,6 +26,9 @@ jobs:
       - name: Run signal engine
         env:
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
           CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
           R2_BUCKET: tvtm-data
           R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}

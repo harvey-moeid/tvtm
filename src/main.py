@@ -6,7 +6,7 @@ import sys
 from datetime import datetime, timezone
 
 from src.config_loader import load_strategy_config, load_symbols, require_env
-from src.storage.r2_store import connect_from_env
+from src.storage.github_store import connect_from_env
 from src.storage.signal_repository import pending_signals
 from src.models import Bias, Direction, ScoreComponent, Signal
 from src.strategy.strategy import (
