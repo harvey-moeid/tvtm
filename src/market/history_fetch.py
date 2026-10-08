@@ -37,6 +37,7 @@ def fetch_history_candles(inst_id: str, timeframe: str, target_count: int) -> Li
     vol_idx = 6 if inst_id.endswith("-SWAP") else 5
     collected: List[Candle] = []
     after_ts: Optional[int] = None
+    now_ms = int(time.time() * 1000)
 
     while len(collected) < target_count:
         params = {"instId": inst_id, "bar": _BAR[timeframe], "limit": _HISTORY_MAX_LIMIT}
@@ -57,6 +58,8 @@ def fetch_history_candles(inst_id: str, timeframe: str, target_count: int) -> Li
 
         for r in rows:
             open_time = int(r[0])
+            if open_time + interval_ms > now_ms or (len(r) > 8 and str(r[8]) != "1"):
+                continue
             collected.append(
                 Candle(
                     open_time=open_time,

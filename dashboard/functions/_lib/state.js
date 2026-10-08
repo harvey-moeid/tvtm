@@ -20,25 +20,25 @@ export async function readState(env) {
   }
   let state;
   if (env.GH_STATE_TOKEN) {
-    const endpoint = `https://api.github.com/repos/${repository}/contents/state.json?ref=\${encodeURIComponent(branch)}\`;
+    const endpoint = `https://api.github.com/repos/${repository}/contents/state.json?ref=${encodeURIComponent(branch)}`;
     const response = await fetch(endpoint, {
       headers: {
-        Authorization: \`Bearer \${env.GH_STATE_TOKEN}\`,
+        Authorization: `Bearer ${env.GH_STATE_TOKEN}`,
         Accept: "application/vnd.github+json",
         "User-Agent": "tvtm-dashboard",
         "Cache-Control": "no-cache",
       },
     });
-    if (!response.ok) throw new Error(\`GitHub state HTTP \${response.status}\`);
+    if (!response.ok) throw new Error(`GitHub state HTTP ${response.status}`);
     const payload = await response.json();
     const raw = atob(payload.content.replace(/\s/g, ""));
     const bytes = Uint8Array.from(raw, (c) => c.charCodeAt(0));
     state = JSON.parse(new TextDecoder().decode(bytes));
   } else {
     const refresh = Math.floor(Date.now() / 30000);
-    const endpoint = \`https://raw.githubusercontent.com/\${repository}/\${branch}/state.json?v=\${refresh}\`;
+    const endpoint = `https://raw.githubusercontent.com/${repository}/${branch}/state.json?v=${refresh}`;
     const response = await fetch(endpoint, { headers: { Accept: "application/json" } });
-    if (!response.ok) throw new Error(\`GitHub state HTTP \${response.status}; cek apakah migrasi awal sudah berhasil\`);
+    if (!response.ok) throw new Error(`GitHub state HTTP ${response.status}; cek apakah migrasi awal sudah berhasil`);
     state = await response.json();
   }
   if (state.version !== 1 || !Array.isArray(state.signals) || !Array.isArray(state.trades)) {

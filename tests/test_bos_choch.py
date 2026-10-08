@@ -90,3 +90,13 @@ def test_empty_candles_returns_range_no_event():
     result = detect_structure_event([], [], prior_trend=None)
     assert result.trend == StructureTrend.RANGE
     assert result.event == StructureEvent.NONE
+
+
+def test_repeated_close_above_same_high_is_not_new_bos():
+    from tests.conftest import make_candle
+    swings = [swing(100, "low", 0), swing(110, "high", 1),
+              swing(105, "low", 2), swing(112, "high", 3)]
+    previous = make_candle(9, 112.0, 114.0, 111.0, 113.0)
+    current = make_candle(10, 113.0, 116.0, 112.5, 115.0)
+    result = detect_structure_event([previous, current], swings, prior_trend=StructureTrend.UP)
+    assert result.event == StructureEvent.NONE

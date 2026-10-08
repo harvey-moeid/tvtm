@@ -8,6 +8,7 @@ from src.models import Signal
 from src.storage.signal_repository import (
     create_trade,
     mark_notified,
+    mark_trade_closed_notified,
     try_reserve,
 )
 from src.strategy.bias_m15 import compute_m15_bias
@@ -56,7 +57,8 @@ def evaluate_market(
         from src.notify.notify_discord import send_discord_trade_closed
 
         for trade in tracking["closed_trades"]:
-            send_discord_trade_closed(webhook_url, trade)
+            if send_discord_trade_closed(webhook_url, trade):
+                mark_trade_closed_notified(store, trade["id"])
 
     # Limit concurrent *virtual* positions to avoid overlapping exposures.
     open_count = sum(

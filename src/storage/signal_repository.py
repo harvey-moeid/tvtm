@@ -42,8 +42,23 @@ def mark_notified(store, signal_key):
     store.save()
 
 
-def pending_signals(store):
-    return [r for r in store.rows if r["notified"] == 0]
+def pending_signals(store, max_age_minutes=20):
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)
+    changed = False
+    live = []
+    for row in store.rows:
+        if row["notified"] != 0:
+            continue
+        ts = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+        if ts < cutoff:
+            row["notified"] = -1  # expired, never replay old trading signals
+            changed = True
+        else:
+            live.append(row)
+    if changed:
+        store.save()
+    return live
 
 
 def create_trade(store, signal):
@@ -72,8 +87,19 @@ def list_open_trades(store):
 
 
 def update_trade(store, trade_id, fields):
-    allowed = {"status", "tp1_hit", "tp1_hit_at", "exit_price", "exit_time", "exit_reason", "pnl_pct", "pnl_r"}
+    allowed = {"status", "tp1_hit", "tp1_hit_at", "exit_price", "exit_time", "exit_reason", "pnl_pct", "pnl_r", "closed_notified"}
     row = next(r for r in store.trades if r["id"] == trade_id)
     row.update({k: v for k, v in fields.items() if k in allowed})
     row["updated_at"] = utc_now()
     store.save()
+
+
+
+def pending_trade_closures(store):
+    # Old migrated closed rows do not have closed_notified and must not re-alert.
+    return [r for r in store.trades if r["status"] == "CLOSED"
+            and r.get("closed_notified", 1) == 0]
+
+
+def mark_trade_closed_notified(store, trade_id):
+    update_trade(store, trade_id, {"closed_notified": 1})

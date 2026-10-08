@@ -31,3 +31,20 @@ def test_single_target_closes_at_tp1():
     assert trade["status"] == "CLOSED"
     assert trade["exit_reason"] == "TP1"
     assert trade["pnl_r"] == 1.0
+
+
+def test_tp1_partial_then_tp2_is_weighted():
+    d = FakeJSONStore()
+    trade = row(tp1_close_fraction=0.5)
+    d.trades.append(trade)
+    candles = [make_candle(1, 100, 106, 99, 105), make_candle(2, 105, 111, 104, 110)]
+    assert track_trade_row(d, trade, candles) == "CLOSED_TP"
+    assert trade["pnl_r"] == 1.5  # 50% x 1R + 50% x 2R
+
+
+def test_tp2_same_candle_as_tp1_respects_partial_allocation():
+    d = FakeJSONStore()
+    trade = row(tp1_close_fraction=0.5)
+    d.trades.append(trade)
+    assert track_trade_row(d, trade, [make_candle(1, 100, 111, 99, 110)]) == "CLOSED_TP"
+    assert trade["pnl_r"] == 1.5

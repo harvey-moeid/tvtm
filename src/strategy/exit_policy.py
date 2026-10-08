@@ -42,6 +42,7 @@ def resolve_exit(row: dict, candle):
             "exit_reason": reason,
             "pnl_pct": pnl_p,
             "pnl_r": pnl_r,
+            "closed_notified": 0,
         }
         if partial and not tp1_hit:
             fields.update({"tp1_hit": 1, "tp1_hit_at": candle.candle_time_iso})
