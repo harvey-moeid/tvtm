@@ -58,6 +58,14 @@ def evaluate_market(
         for trade in tracking["closed_trades"]:
             send_discord_trade_closed(webhook_url, trade)
 
+    # Limit concurrent *virtual* positions to avoid overlapping exposures.
+    open_count = sum(
+        row["symbol"] == symbol and row["status"] in ("OPEN", "TP1_HIT")
+        for row in store.trades
+    )
+    if open_count >= strategy_cfg.get("maxOpenTradesPerSymbol", 1):
+        return None
+
     bias = compute_m15_bias(
         m15,
         lookback,

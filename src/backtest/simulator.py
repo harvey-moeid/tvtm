@@ -28,7 +28,7 @@ from typing import List, Optional
 from src.backtest.store import InMemorySignalStore
 from src.models import Candle, Direction, Signal
 from src.strategy.bias_m15 import compute_m15_bias
-from src.strategy.pnl import pnl_pct, r_multiple
+from src.strategy.exit_policy import resolve_exit
 from src.strategy.trigger_m5 import evaluate_m5_trigger
 
 
@@ -42,6 +42,8 @@ class BacktestTrade:
     take_profit_2: Optional[float]
     status: str = "OPEN"  # OPEN | TP1_HIT | CLOSED
     tp1_hit: bool = False
+    tp1_close_fraction: float = 0.0
+    tp1_hit_at: Optional[str] = None
     exit_price: Optional[float] = None
     exit_time: Optional[str] = None
     exit_reason: Optional[str] = None
@@ -49,33 +51,19 @@ class BacktestTrade:
     pnl_r: Optional[float] = None
 
 
-def _resolve_trade_one_candle(trade: BacktestTrade, c: Candle) -> None:
-    direction = trade.signal.direction
-    sl, tp1, tp2 = trade.stop_loss, trade.take_profit_1, trade.take_profit_2
-
-    sl_hit = (c.low <= sl) if direction == Direction.BUY else (c.high >= sl)
-    tp1_now = (tp1 is not None) and ((c.high >= tp1) if direction == Direction.BUY else (c.low <= tp1))
-    tp2_now = (tp2 is not None) and ((c.high >= tp2) if direction == Direction.BUY else (c.low <= tp2))
-
-    if sl_hit:
-        trade.status = "CLOSED"
-        trade.exit_price = sl
-        trade.exit_time = c.candle_time_iso
-        trade.exit_reason = "SL_AFTER_TP1" if trade.tp1_hit else "SL"
-        trade.pnl_pct = pnl_pct(trade.entry_price, sl, direction)
-        trade.pnl_r = r_multiple(trade.entry_price, sl, sl, direction)
-        return
-    if tp2_now:
-        trade.status = "CLOSED"
-        trade.exit_price = tp2
-        trade.exit_time = c.candle_time_iso
-        trade.exit_reason = "TP2"
-        trade.pnl_pct = pnl_pct(trade.entry_price, tp2, direction)
-        trade.pnl_r = r_multiple(trade.entry_price, sl, tp2, direction)
-        return
-    if tp1_now and not trade.tp1_hit:
-        trade.tp1_hit = True
-        trade.status = "TP1_HIT"
+def _resolve_trade_one_candle(trade: BacktestTrade, candle: Candle) -> None:
+    row = {
+        "direction": trade.signal.direction.value,
+        "entry_price": trade.entry_price,
+        "stop_loss": trade.stop_loss,
+        "take_profit_1": trade.take_profit_1,
+        "take_profit_2": trade.take_profit_2,
+        "tp1_hit": trade.tp1_hit,
+        "tp1_close_fraction": trade.tp1_close_fraction,
+    }
+    fields, _ = resolve_exit(row, candle)
+    for key, value in fields.items():
+        setattr(trade, key, value)
 
 
 def run_backtest(
@@ -134,6 +122,9 @@ def run_backtest(
             structure_break_buffer_pct=break_buffer,
         )
 
+        if sum(t.signal.symbol == symbol for t in open_trades) >= cfg.get("maxOpenTradesPerSymbol", 1):
+            continue
+
         signal = evaluate_m5_trigger(
             market_id, symbol, market,
             bias.bias, bias.structure,
@@ -163,6 +154,7 @@ def run_backtest(
                 stop_loss=signal.stop_loss,
                 take_profit_1=signal.take_profit_1,
                 take_profit_2=signal.take_profit_2,
+                tp1_close_fraction=signal.tp1_close_fraction,
             )
         )
 

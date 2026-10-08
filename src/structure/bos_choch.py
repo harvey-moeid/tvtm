@@ -51,9 +51,11 @@ def detect_structure_event(
     event_level: Optional[float] = None
     event_candle_time: Optional[int] = None
 
+    # Crossing must be fresh. Repeated closes beyond an old level are not new BOS.
+    previous_close = candles[-2].close if len(candles) >= 2 else None
     if structure.last_swing_high is not None:
         bullish_threshold = structure.last_swing_high.price * (1 + break_buffer_pct / 100)
-        if latest.close > bullish_threshold:
+        if latest.close > bullish_threshold and (previous_close is None or previous_close <= bullish_threshold):
             event = (
                 StructureEvent.BOS_BULLISH
                 if prior_trend == StructureTrend.UP
@@ -64,7 +66,7 @@ def detect_structure_event(
 
     if event == StructureEvent.NONE and structure.last_swing_low is not None:
         bearish_threshold = structure.last_swing_low.price * (1 - break_buffer_pct / 100)
-        if latest.close < bearish_threshold:
+        if latest.close < bearish_threshold and (previous_close is None or previous_close >= bearish_threshold):
             event = (
                 StructureEvent.BOS_BEARISH
                 if prior_trend == StructureTrend.DOWN

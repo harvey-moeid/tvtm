@@ -7,6 +7,8 @@ from __future__ import annotations
 
 import logging
 import time
+
+_INTERVAL_MS = {"5m": 300000, "15m": 900000}
 from typing import List, Optional
 
 from src.market.exchange_adapter import get_adapter
@@ -36,10 +38,12 @@ def fetch_closed_candles(
             closed = [c for c in raw if c.is_closed]
             closed.sort(key=lambda c: c.open_time)
             if len(closed) < min_history:
-                log.warning(
-                    "Candle closed tersedia (%d) di bawah minHistoricalCandles (%d) untuk %s %s",
-                    len(closed), min_history, exchange_symbol, timeframe,
-                )
+                raise ValueError(f"Data candle kurang: {len(closed)}/{min_history}")
+            interval = _INTERVAL_MS[timeframe]
+            if int(time.time() * 1000) - closed[-1].close_time > interval * 3:
+                raise ValueError(f"Candle {timeframe} stale: {closed[-1].candle_time_iso}")
+            if any(b.open_time - a.open_time != interval for a, b in zip(closed[-5:-1], closed[-4:])):
+                raise ValueError(f"Candle {timeframe} mengandung gap terbaru")
             return closed
         except Exception as e:  # noqa: BLE001 - sengaja luas, ini boundary I/O eksternal
             last_err = e

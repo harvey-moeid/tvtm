@@ -97,9 +97,9 @@ class ScoreResult:
 class Signal:
     market_id:str; symbol:str; market:str; timeframe:str; direction:Direction; m15_bias:Bias; price:float; zone_type:str; zone_level:float; structure_event:str; pattern:str; candle_time_iso:str; candle_open_time_ms:int; signal_key:str; cooldown_key:str
     stop_loss:Optional[float]=None; take_profit_1:Optional[float]=None; take_profit_2:Optional[float]=None; risk_reward_1:Optional[float]=None; risk_reward_2:Optional[float]=None; atr:Optional[float]=None; zone_tolerance_pct_used:Optional[float]=None
-    confidence_pct:Optional[float]=None; score:Optional[float]=None; checklist:List[ScoreComponent]=field(default_factory=list)
+    confidence_pct:Optional[float]=None; score:Optional[float]=None; checklist:List[ScoreComponent]=field(default_factory=list); tp1_close_fraction:float=0.5
     def to_payload(self):
-        return {"symbol":self.symbol,"market":self.market,"timeframe":self.timeframe,"direction":self.direction.value,"m15_bias":self.m15_bias.value,"price":self.price,"zone":{"type":self.zone_type,"level":self.zone_level},"structure_event":self.structure_event,"pattern":self.pattern,"candle_time":self.candle_time_iso,"risk":{"stop_loss":self.stop_loss,"take_profit_1":self.take_profit_1,"take_profit_2":self.take_profit_2,"risk_reward_1":self.risk_reward_1,"risk_reward_2":self.risk_reward_2,"atr":self.atr},"scoring":{"confidence_pct":self.confidence_pct,"score":self.score,"checklist":[{"label":c.label,"valid":c.valid,"detail":c.detail} for c in self.checklist]}}
+        return {"symbol":self.symbol,"market":self.market,"timeframe":self.timeframe,"direction":self.direction.value,"m15_bias":self.m15_bias.value,"price":self.price,"zone":{"type":self.zone_type,"level":self.zone_level},"structure_event":self.structure_event,"pattern":self.pattern,"candle_time":self.candle_time_iso,"risk":{"stop_loss":self.stop_loss,"take_profit_1":self.take_profit_1,"take_profit_2":self.take_profit_2,"risk_reward_1":self.risk_reward_1,"risk_reward_2":self.risk_reward_2,"atr":self.atr,"tp1_close_fraction":self.tp1_close_fraction},"scoring":{"confidence_pct":self.confidence_pct,"score":self.score,"checklist":[{"label":c.label,"valid":c.valid,"detail":c.detail} for c in self.checklist]}}
 
 @dataclass
 class Trade:

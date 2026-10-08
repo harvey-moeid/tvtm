@@ -89,6 +89,11 @@ def evaluate_m5_trigger(
 
     if not zone.is_touched_by(curr):
         return None
+    # Wick-only touches with a far-away close are poor actionable entries.
+    if m5_atr is None or m5_atr <= 0:
+        return None
+    if abs(curr.close - zone.level) > cfg.get("maxEntryDistanceAtr", 2.0) * m5_atr:
+        return None
 
     if not passes_volume_filter(m5_candles, cfg):
         return None
@@ -219,4 +224,5 @@ def evaluate_m5_trigger(
         confidence_pct=score_result.confidence_pct,
         score=score_result.score,
         checklist=score_result.components,
+        tp1_close_fraction=cfg.get("tp1CloseFraction", 0.5),
     )

@@ -20,7 +20,7 @@ export async function readState(env) {
   }
   let state;
   if (env.GH_STATE_TOKEN) {
-    const endpoint = \`https://api.github.com/repos/\${repository}/contents/state.json?ref=\${encodeURIComponent(branch)}\`;
+    const endpoint = `https://api.github.com/repos/${repository}/contents/state.json?ref=\${encodeURIComponent(branch)}\`;
     const response = await fetch(endpoint, {
       headers: {
         Authorization: \`Bearer \${env.GH_STATE_TOKEN}\`,

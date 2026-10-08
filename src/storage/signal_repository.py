@@ -24,6 +24,7 @@ def try_reserve(store, signal):
         "risk_reward_2": signal.risk_reward_2, "atr": signal.atr,
         "zone_tolerance_pct_used": signal.zone_tolerance_pct_used,
         "confidence_pct": signal.confidence_pct, "score": signal.score,
+        "tp1_close_fraction": signal.tp1_close_fraction,
         "checklist_json": json.dumps([{
             "label": c.label, "valid": c.valid, "detail": c.detail, "weight": c.weight
         } for c in signal.checklist], separators=(",", ":")),
@@ -56,6 +57,7 @@ def create_trade(store, signal):
         "entry_price": signal.price, "stop_loss": signal.stop_loss,
         "take_profit_1": signal.take_profit_1, "take_profit_2": signal.take_profit_2,
         "entry_time": signal.candle_time_iso, "status": "OPEN", "tp1_hit": 0,
+        "tp1_close_fraction": signal.tp1_close_fraction,
         "tp1_hit_at": None, "exit_price": None, "exit_time": None,
         "exit_reason": None, "pnl_pct": None, "pnl_r": None,
         "created_at": now, "updated_at": now,

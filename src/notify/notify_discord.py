@@ -61,7 +61,7 @@ def send_discord_signal(webhook_url, signal):
 
     fields.append(
         {
-            "name": "Confidence",
+            "name": "Confluence (bukan probabilitas menang)",
             "value": f"{signal.confidence_pct}% | Score {signal.score}/10",
             "inline": True,
         }
