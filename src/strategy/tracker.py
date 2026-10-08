@@ -23,7 +23,10 @@ def track_trade_row(store, row, candles):
             update_trade(store, row["id"], fields)
             row.update(fields)
         if event.startswith("CLOSED"):
-            return "CLOSED_SL" if event.startswith("CLOSED_SL") else "CLOSED_TP"
+            # Preserve legacy tracker return values consumed by existing tests/callers.
+            if event.startswith("CLOSED_SL"):
+                return "CLOSED_SL"
+            return event
         if event == "TP1_HIT":
             updated_tp1 = True
     return "TP1_HIT" if updated_tp1 and not previously_hit else "OPEN"
