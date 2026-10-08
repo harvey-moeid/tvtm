@@ -1,0 +1,39 @@
+name: Bootstrap GitHub Trading State
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - ".github/workflows/bootstrap-github-state.yml"
+      - "scripts/bootstrap_github_state.py"
+  workflow_dispatch: {}
+
+# Must never race with the scheduled signal writer or a manual signal run.
+concurrency:
+  group: tv-alert-relay-check-signal
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+
+jobs:
+  bootstrap:
+    runs-on: ubuntu-latest
+    timeout-minutes: 8
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+      - name: Install dependencies
+        run: pip install -r requirements.txt
+      - name: Safely bootstrap GitHub JSON from existing R2 once
+        env:
+          GITHUB_TOKEN: ${{ github.token }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          GITHUB_SHA: ${{ github.sha }}
+          CF_ACCOUNT_ID: ${{ secrets.CF_ACCOUNT_ID }}
+          R2_BUCKET: tvtm-data
+          R2_ACCESS_KEY_ID: ${{ secrets.R2_ACCESS_KEY_ID }}
+          R2_SECRET_ACCESS_KEY: ${{ secrets.R2_SECRET_ACCESS_KEY }}
+        run: python scripts/bootstrap_github_state.py
