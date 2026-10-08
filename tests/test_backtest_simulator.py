@@ -93,3 +93,17 @@ def test_no_signal_during_warmup_before_enough_m15_history_closed():
 
     trades = run_backtest("BTCUSDT_FUTURES", "BTCUSDT", "futures", m15, m5, _cfg())
     assert trades == []
+
+
+
+def test_backtest_exit_policy_accounts_for_partial_tp1(monkeypatch):
+    from src.backtest.simulator import BacktestTrade, _resolve_trade_one_candle
+    from src.models import Signal, Direction, Bias
+    sig = Signal("BTCUSDT_FUTURES", "BTCUSDT", "futures", "5m", Direction.BUY,
+                 Bias.BULLISH, 100.0, "support", 99.0, "BOS_BULLISH",
+                 "bullish_pin_bar", "2024-01-01T00:00:00Z", 0, "k", "ck")
+    trade = BacktestTrade(sig, sig.candle_time_iso, 100, 95, 105, 110, tp1_close_fraction=0.5)
+    _resolve_trade_one_candle(trade, _mk5(1, 100, 106, 99, 105))
+    assert trade.tp1_hit
+    _resolve_trade_one_candle(trade, _mk5(2, 104, 104, 94, 95))
+    assert trade.status == "CLOSED" and trade.pnl_r == 0.0

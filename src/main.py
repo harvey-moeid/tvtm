@@ -6,8 +6,10 @@ import sys
 from datetime import datetime, timezone
 
 from src.config_loader import load_strategy_config, load_symbols, require_env
-from src.storage.r2_store import connect_from_env
-from src.storage.signal_repository import pending_signals
+from src.storage.github_store import connect_from_env
+from src.storage.signal_repository import (
+    pending_signals, pending_trade_closures, mark_trade_closed_notified,
+)
 from src.models import Bias, Direction, ScoreComponent, Signal
 from src.strategy.strategy import (
     MarketDataUnavailable,
@@ -39,6 +41,16 @@ def main() -> int:
         "errors": 0,
         "data_errors": 0,
     }
+
+    # Retry any unsent position-close alerts after a crash or Discord failure.
+    from src.notify.notify_discord import send_discord_trade_closed
+    for trade in pending_trade_closures(store):
+        try:
+            if send_discord_trade_closed(webhook, trade):
+                mark_trade_closed_notified(store, trade["id"])
+        except Exception:
+            summary["errors"] += 1
+            logging.exception("[%s] retry closure notification failed", trade["signal_key"])
 
     # Retry reservations that were saved before an interrupted/failed Discord call.
     for row in pending_signals(store):

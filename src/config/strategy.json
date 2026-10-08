@@ -26,7 +26,10 @@
     "obLookback": 10,
     "liquidityEqualTolerancePct": 0.05,
     "volumeProfileBucketCount": 24,
-    "minScoreToNotify": 0.0
+    "minScoreToNotify": 2.5,
+    "maxEntryDistanceAtr": 2.0,
+    "tp1CloseFraction": 0.5,
+    "maxOpenTradesPerSymbol": 1
   },
   "overrides": {
     "BTCUSDT": {

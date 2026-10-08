@@ -6,7 +6,9 @@ import pytest
 
 from src.market.exchange_adapter import get_adapter
 from src.notify.notify_discord import _post
-from src.storage.r2_store import connect_from_env
+import base64
+import json
+import requests
 
 
 def _required_env(*names: str) -> dict[str, str] | None:
@@ -45,13 +47,25 @@ def test_okx_gold_live():
 
 
 @pytest.mark.live
-def test_r2_state_live():
+def test_github_state_live():
     if os.getenv("TVTM_LIVE_IO") != "1":
         pytest.skip("TVTM_LIVE_IO != 1")
-    if _required_env("CF_ACCOUNT_ID", "R2_ACCESS_KEY_ID", "R2_SECRET_ACCESS_KEY") is None:
-        pytest.skip("Cloudflare R2 secrets belum tersedia")
-    store = connect_from_env()
-    assert store.state["version"] == 1
+    required = _required_env("GITHUB_TOKEN", "GITHUB_REPOSITORY")
+    if required is None:
+        pytest.skip("GitHub repository/token tidak tersedia")
+    repo = required["GITHUB_REPOSITORY"]
+    res = requests.get(
+        f"https://api.github.com/repos/{repo}/contents/state.json",
+        params={"ref": os.getenv("TVTM_STATE_BRANCH", "tvtm-state")},
+        headers={"Authorization": f"Bearer {required['GITHUB_TOKEN']}",
+                 "Accept": "application/vnd.github+json"},
+        timeout=20,
+    )
+    res.raise_for_status()
+    state = json.loads(base64.b64decode(res.json()["content"]))
+    assert state["version"] == 1
+    assert isinstance(state["trades"], list)
+    assert isinstance(state["signals"], list)
 
 
 @pytest.mark.live

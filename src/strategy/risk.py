@@ -29,6 +29,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from typing import List, Optional
+import math
 
 from src.models import Direction
 
@@ -57,7 +58,8 @@ def compute_risk_levels(
                             yaitu swing low/high M15 yang membentuk zona)
     atr                   : ATR M5 saat ini (dipakai sbg buffer SL)
     """
-    if atr is None or atr <= 0 or entry_price <= 0:
+    if (atr is None or not all(math.isfinite(x) for x in (atr, entry_price, structure_stop_price))
+            or atr <= 0 or entry_price <= 0 or structure_stop_price <= 0):
         return RiskLevels(valid=False, reason="atr_or_price_invalid")
 
     sl_atr_buffer_mult = cfg.get("slAtrBufferMultiplier", 0.25)
@@ -90,7 +92,8 @@ def compute_risk_levels(
     rr1 = float(rr_targets[0])
     rr2 = float(rr_targets[1]) if len(rr_targets) > 1 else None
 
-    if rr1 < min_rr:
+    if (not math.isfinite(rr1) or rr1 <= 0 or rr1 < min_rr
+            or (rr2 is not None and (not math.isfinite(rr2) or rr2 <= rr1))):
         return RiskLevels(valid=False, reason="risk_reward_below_minimum")
 
     if direction == Direction.BUY:
@@ -99,6 +102,9 @@ def compute_risk_levels(
     else:
         tp1 = entry_price - risk * rr1
         tp2 = entry_price - risk * rr2 if rr2 is not None else None
+
+    if tp1 <= 0 or (tp2 is not None and tp2 <= 0):
+        return RiskLevels(valid=False, reason="invalid_target_price")
 
     return RiskLevels(
         valid=True,

@@ -24,6 +24,7 @@ def try_reserve(store, signal):
         "risk_reward_2": signal.risk_reward_2, "atr": signal.atr,
         "zone_tolerance_pct_used": signal.zone_tolerance_pct_used,
         "confidence_pct": signal.confidence_pct, "score": signal.score,
+        "tp1_close_fraction": signal.tp1_close_fraction,
         "checklist_json": json.dumps([{
             "label": c.label, "valid": c.valid, "detail": c.detail, "weight": c.weight
         } for c in signal.checklist], separators=(",", ":")),
@@ -41,8 +42,23 @@ def mark_notified(store, signal_key):
     store.save()
 
 
-def pending_signals(store):
-    return [r for r in store.rows if r["notified"] == 0]
+def pending_signals(store, max_age_minutes=20):
+    from datetime import datetime, timedelta, timezone
+    cutoff = datetime.now(timezone.utc) - timedelta(minutes=max_age_minutes)
+    changed = False
+    live = []
+    for row in store.rows:
+        if row["notified"] != 0:
+            continue
+        ts = datetime.fromisoformat(row["created_at"].replace("Z", "+00:00"))
+        if ts < cutoff:
+            row["notified"] = -1  # expired, never replay old trading signals
+            changed = True
+        else:
+            live.append(row)
+    if changed:
+        store.save()
+    return live
 
 
 def create_trade(store, signal):
@@ -56,6 +72,7 @@ def create_trade(store, signal):
         "entry_price": signal.price, "stop_loss": signal.stop_loss,
         "take_profit_1": signal.take_profit_1, "take_profit_2": signal.take_profit_2,
         "entry_time": signal.candle_time_iso, "status": "OPEN", "tp1_hit": 0,
+        "tp1_close_fraction": signal.tp1_close_fraction,
         "tp1_hit_at": None, "exit_price": None, "exit_time": None,
         "exit_reason": None, "pnl_pct": None, "pnl_r": None,
         "created_at": now, "updated_at": now,
@@ -70,8 +87,19 @@ def list_open_trades(store):
 
 
 def update_trade(store, trade_id, fields):
-    allowed = {"status", "tp1_hit", "tp1_hit_at", "exit_price", "exit_time", "exit_reason", "pnl_pct", "pnl_r"}
+    allowed = {"status", "tp1_hit", "tp1_hit_at", "exit_price", "exit_time", "exit_reason", "pnl_pct", "pnl_r", "closed_notified"}
     row = next(r for r in store.trades if r["id"] == trade_id)
     row.update({k: v for k, v in fields.items() if k in allowed})
     row["updated_at"] = utc_now()
     store.save()
+
+
+
+def pending_trade_closures(store):
+    # Old migrated closed rows do not have closed_notified and must not re-alert.
+    return [r for r in store.trades if r["status"] == "CLOSED"
+            and r.get("closed_notified", 1) == 0]
+
+
+def mark_trade_closed_notified(store, trade_id):
+    update_trade(store, trade_id, {"closed_notified": 1})
